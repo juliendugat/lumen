@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Lumen — quiet, body-literate cycle tracking</title>
+    <meta name="description" content="A calm, private cycle tracker that learns your patterns. Local-only. No accounts. No servers." />
+    <meta property="og:title" content="Lumen — cycle tracking" />
+    <meta property="og:description" content="A calm, private cycle tracker. Local-only. No accounts. No servers." />
+    <meta property="og:image" content="./icon.png" />
+    <link rel="icon" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #faf7f2;
+        --paper-deep: #f2ede4;
+        --paper-edge: #e7e0d3;
+        --ink: #1f1b17;
+        --ink-soft: #3a332b;
+        --ink-muted: #6e6458;
+        --ink-faint: #a89e8e;
+        --terracotta: #c97a63;
+        --terracotta-deep: #9b4a38;
+        --sage: #7e9270;
+        --max: 1080px;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1, h2, h3 {
+        font-family: 'Fraunces', Georgia, serif;
+        font-weight: 500;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--paper-edge); }
+      a:hover { border-bottom-color: var(--ink); }
+      .container { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+
+      /* Header */
+      header {
+        padding: 24px 0;
+      }
+      header .container {
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .brand {
+        display: flex; align-items: center; gap: 12px; font-family: 'Fraunces', serif; font-size: 20px;
+        border-bottom: none;
+      }
+      .brand img { width: 36px; height: 36px; border-radius: 8px; }
+      nav a { margin-left: 24px; font-size: 14px; color: var(--ink-muted); border-bottom: none; }
+      nav a:hover { color: var(--ink); }
+
+      /* Hero */
+      .hero {
+        padding: 64px 0 48px;
+        text-align: center;
+      }
+      .hero h1 {
+        font-size: clamp(40px, 7vw, 72px);
+        line-height: 1.05;
+        max-width: 800px;
+        margin: 0 auto 24px;
+      }
+      .hero p {
+        font-size: clamp(16px, 2vw, 20px);
+        color: var(--ink-muted);
+        max-width: 600px;
+        margin: 0 auto 36px;
+      }
+      .badges {
+        display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;
+      }
+      .badge {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 12px 20px; border-radius: 999px;
+        background: var(--ink); color: var(--paper);
+        font-weight: 500; font-size: 14px; border-bottom: none;
+      }
+      .badge.ghost {
+        background: transparent; color: var(--ink); border: 1px solid var(--paper-edge);
+      }
+
+      /* Phone */
+      .phone-wrap {
+        margin: 48px auto 0;
+        text-align: center;
+      }
+      .phone-wrap img {
+        max-width: 320px; width: 100%;
+        border-radius: 32px;
+        box-shadow: 0 30px 60px -20px rgba(31,27,23,0.18);
+        border: 1px solid var(--paper-edge);
+      }
+
+      /* Pillars */
+      section.pillars {
+        padding: 80px 0;
+      }
+      .grid { display: grid; gap: 32px; grid-template-columns: 1fr; }
+      @media (min-width: 720px) {
+        .grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .grid.cols-2 { grid-template-columns: 1fr 1fr; }
+      }
+      .pillar h3 { font-size: 22px; margin-bottom: 8px; }
+      .pillar p { color: var(--ink-muted); margin: 0; }
+      .kicker {
+        text-transform: uppercase; letter-spacing: 0.18em;
+        font-size: 11px; color: var(--ink-muted); margin-bottom: 12px;
+      }
+
+      /* Privacy block */
+      section.privacy {
+        background: var(--paper-deep);
+        padding: 80px 0;
+      }
+      section.privacy h2 { font-size: 36px; margin-bottom: 12px; }
+      section.privacy p { color: var(--ink-muted); max-width: 640px; }
+      section.privacy ul {
+        list-style: none; padding: 0; margin: 32px 0 0;
+        display: grid; gap: 12px;
+      }
+      section.privacy li {
+        display: flex; align-items: flex-start; gap: 12px;
+      }
+      section.privacy li::before {
+        content: '✓';
+        font-weight: 600; color: var(--sage); flex: 0 0 auto;
+      }
+
+      /* Modes */
+      section.modes { padding: 80px 0; }
+      .mode-card {
+        padding: 24px;
+        background: var(--paper-deep);
+        border-radius: 18px;
+      }
+      .mode-card h3 { font-size: 18px; margin-bottom: 6px; }
+      .mode-card p { color: var(--ink-muted); margin: 0; font-size: 14px; }
+
+      /* CTA */
+      section.cta {
+        text-align: center; padding: 80px 0;
+      }
+      section.cta h2 { font-size: clamp(32px, 5vw, 48px); margin-bottom: 24px; }
+
+      footer {
+        padding: 48px 0; border-top: 1px solid var(--paper-edge);
+        font-size: 13px; color: var(--ink-muted);
+      }
+      footer .container {
+        display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+      }
+      footer a { color: var(--ink-muted); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <a href="#" class="brand">
+          <img src="./icon.png" alt="Lumen icon" />
+          <span>Lumen</span>
+        </a>
+        <nav>
+          <a href="#features">Features</a>
+          <a href="#privacy">Privacy</a>
+          <a href="./privacy.html">Policy</a>
+        </nav>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="container">
+        <div class="kicker">CYCLE TRACKING, REIMAGINED</div>
+        <h1>Quiet, body-literate cycle tracking.</h1>
+        <p>
+          A calm, private app that learns your cycle and stays out of your way.
+          Local-only. No accounts. No servers. No advertising.
+        </p>
+        <div class="badges">
+          <a href="#" class="badge">Coming soon to the App Store</a>
+          <a href="#" class="badge ghost">Android via Play Store</a>
+        </div>
+        <div class="phone-wrap">
+          <img src="./screenshots/01-home-6.7.png" alt="Lumen home screen" />
+        </div>
+      </div>
+    </section>
+
+    <section class="pillars" id="features">
+      <div class="container">
+        <div class="kicker">WHAT IT DOES</div>
+        <h2 style="font-size: clamp(32px, 5vw, 48px); max-width: 700px; margin-bottom: 48px;">
+          Honest predictions. Gentle defaults. Real depth, when you want it.
+        </h2>
+        <div class="grid cols-3">
+          <div class="pillar">
+            <h3>One-tap log</h3>
+            <p>
+              Open the app on a period day, tap the ring, you're done. Symptoms,
+              mood, BBT, mucus, sex log, medications, notes — all there when
+              you want them.
+            </p>
+          </div>
+          <div class="pillar">
+            <h3>Honest forecasting</h3>
+            <p>
+              Predictions show a window, not a fake-precise single date. The
+              band tightens as Lumen learns your pattern, and widens when your
+              cycles shift.
+            </p>
+          </div>
+          <div class="pillar">
+            <h3>Insights that matter</h3>
+            <p>
+              Symptom patterns across the cycle, regularity scores, BBT charts,
+              cycle history. Built from your actual data, not generic averages.
+            </p>
+          </div>
+          <div class="pillar">
+            <h3>Calendar export</h3>
+            <p>
+              Send predicted period and fertile windows to iOS Calendar, Google
+              Calendar, or Outlook. One file, .ics, fully offline.
+            </p>
+          </div>
+          <div class="pillar">
+            <h3>Doctor PDF report</h3>
+            <p>
+              A printable, monochrome 12-month summary for your GP — cycles,
+              symptom clusters, mood share, medications.
+            </p>
+          </div>
+          <div class="pillar">
+            <h3>Partner share</h3>
+            <p>
+              A read-only, time-limited snapshot, generated on your phone.
+              No account on either side. Expires after 14 days.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="privacy" id="privacy">
+      <div class="container">
+        <div class="kicker">PRIVACY BY DESIGN</div>
+        <h2>Your cycle data is your data.</h2>
+        <p>
+          Lumen is built around a simple principle: the safest place for your
+          cycle data is your own device. So that's where we leave it.
+        </p>
+        <ul>
+          <li>No accounts. No servers. No analytics. No advertising.</li>
+          <li>SQLite database stored in the app sandbox, app-lock-gated.</li>
+          <li>Encryption key generated on first launch, kept in your phone's secure enclave.</li>
+          <li>iCloud / Google Drive backup explicitly excluded.</li>
+          <li>Privacy nutrition label: "Data Not Collected".</li>
+          <li>Airplane-mode test: open the app, use it normally, watch nothing happen.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="modes">
+      <div class="container">
+        <div class="kicker">MODES FOR DIFFERENT STAGES</div>
+        <h2 style="font-size: clamp(32px, 5vw, 48px); margin-bottom: 32px;">
+          Lumen meets you where you are.
+        </h2>
+        <div class="grid cols-2">
+          <div class="mode-card">
+            <h3>Standard</h3>
+            <p>Cycle tracking with predictions, fertile-window estimates, and the full feature set.</p>
+          </div>
+          <div class="mode-card">
+            <h3>Teen</h3>
+            <p>Friendlier copy and a Learn tab with body-literacy explainers — cycle basics, first periods, cramps, mood, fertile window, iron, privacy.</p>
+          </div>
+          <div class="mode-card">
+            <h3>Pregnancy</h3>
+            <p>Cycle predictions pause. Home shows weeks-pregnant from your last menstrual period.</p>
+          </div>
+          <div class="mode-card">
+            <h3>Perimenopause</h3>
+            <p>Wider, honest prediction windows that reflect rising cycle variability.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="container">
+        <h2>Be quietly informed.</h2>
+        <a href="#" class="badge">Coming soon to the App Store</a>
+      </div>
+    </section>
+
+    <footer>
+      <div class="container">
+        <div>© 2026 Lumen. Local-only cycle tracking.</div>
+        <div>
+          <a href="./privacy.html">Privacy</a> · <a href="mailto:hello@lumen.app">Contact</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

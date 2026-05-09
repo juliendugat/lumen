@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="paper-grad" cx="50%" cy="42%" r="65%">
+      <stop offset="0%" stop-color="#FAF7F2" />
+      <stop offset="100%" stop-color="#F2EDE4" />
+    </radialGradient>
+    <linearGradient id="crescent-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#C97A63" />
+      <stop offset="100%" stop-color="#9B4A38" />
+    </linearGradient>
+    <mask id="crescent-mask">
+      <rect x="0" y="0" width="1024" height="1024" fill="white" />
+      <circle cx="593.92" cy="479.23199999999997" r="353.89439999999996" fill="black" />
+    </mask>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#paper-grad)" rx="225.28" />
+
+  <!-- Outer ring suggestion (very subtle on paper, still visible on transparent) -->
+  <circle cx="512" cy="512" r="430.08"
+          fill="none"
+          stroke="#E7E0D3"
+          stroke-width="12.288" />
+
+  <!-- Crescent (terracotta) -->
+  <g mask="url(#crescent-mask)">
+    <circle cx="512" cy="512" r="368.64" fill="url(#crescent-grad)" />
+  </g>
+
+  <!-- Sage ovulation tick at the top of the ring -->
+  <circle cx="799.5391999999999" cy="309.248" r="22.528" fill="#7E9270" opacity="0.9" />
+
+  <!-- Ink "today" marker — the ring focal point -->
+  <circle cx="81.92000000000002" cy="512" r="40.96" fill="#1F1B17" />
+</svg>

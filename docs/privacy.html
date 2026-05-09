@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Lumen — Privacy Policy</title>
+    <link rel="icon" href="./favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #faf7f2;
+        --paper-deep: #f2ede4;
+        --paper-edge: #e7e0d3;
+        --ink: #1f1b17;
+        --ink-soft: #3a332b;
+        --ink-muted: #6e6458;
+        --terracotta: #c97a63;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: 'Inter', -apple-system, sans-serif;
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1, h2, h3 {
+        font-family: 'Fraunces', Georgia, serif;
+        font-weight: 500;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      a { color: var(--ink); }
+      a:hover { color: var(--terracotta); }
+
+      header {
+        padding: 24px 0;
+        border-bottom: 1px solid var(--paper-edge);
+      }
+      .container { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+      header .container {
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .brand {
+        display: flex; align-items: center; gap: 12px;
+        font-family: 'Fraunces', serif; font-size: 20px; text-decoration: none;
+      }
+      .brand img { width: 32px; height: 32px; border-radius: 8px; }
+
+      main { padding: 48px 0 96px; }
+      h1 { font-size: clamp(36px, 6vw, 56px); margin-bottom: 12px; }
+      .meta {
+        color: var(--ink-muted); font-size: 14px;
+        margin-bottom: 48px;
+      }
+      h2 {
+        font-size: 24px; margin-top: 40px; margin-bottom: 12px;
+      }
+      h3 { font-size: 18px; margin-top: 24px; margin-bottom: 8px; }
+      p { color: var(--ink-soft); margin: 12px 0; }
+      ul { color: var(--ink-soft); padding-left: 20px; }
+      li { margin: 6px 0; }
+      .tldr {
+        background: var(--paper-deep);
+        border-radius: 16px;
+        padding: 24px;
+        margin: 32px 0;
+      }
+      .tldr p { margin: 8px 0; }
+      .tldr strong { color: var(--ink); }
+      hr { border: none; border-top: 1px solid var(--paper-edge); margin: 48px 0; }
+      footer {
+        padding: 32px 0; border-top: 1px solid var(--paper-edge);
+        font-size: 13px; color: var(--ink-muted);
+      }
+      footer .container {
+        display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <a href="./index.html" class="brand">
+          <img src="./icon.png" alt="" />
+          <span>Lumen</span>
+        </a>
+        <a href="./index.html">← Home</a>
+      </div>
+    </header>
+    <main>
+      <div class="container">
+        <h1>Privacy Policy</h1>
+        <div class="meta">Effective 2026-05-09 · Last updated 2026-05-09</div>
+
+        <p>
+          Lumen is a cycle-tracking app. This policy describes what we collect,
+          where it goes, and what we don't do. Plain English. No legalese.
+        </p>
+
+        <div class="tldr">
+          <p><strong>TL;DR</strong></p>
+          <p>We collect nothing. No accounts. No servers. No analytics. No advertising.</p>
+          <p>All data stays on your device. Cycles, day logs, medications, settings — stored locally in an app-sandboxed database.</p>
+          <p>Nothing leaves your phone unless you choose to export it.</p>
+        </div>
+
+        <h2>What is stored on your device</h2>
+        <ul>
+          <li>Cycle start/end dates and predicted next periods</li>
+          <li>Per-day flow, symptoms, mood, free-text notes</li>
+          <li>Optional: basal body temperature, cervical mucus observations</li>
+          <li>Optional: sex / protection log (off by default; opt-in toggle)</li>
+          <li>Optional: medications (name, dose, schedule, doses taken)</li>
+          <li>Settings (theme, terminology, life mode, notification preferences)</li>
+          <li>Encryption key (generated on first launch; held in your device's secure enclave — Keychain on iOS, Keystore on Android)</li>
+        </ul>
+        <p>
+          This is stored in a SQLite database file inside Lumen's app sandbox.
+          Other apps cannot read it.
+        </p>
+
+        <h2>What we do <em>not</em> do</h2>
+        <ul>
+          <li>We do not operate any servers that hold your cycle data.</li>
+          <li>We do not require an account, email, phone number, or any other identifier.</li>
+          <li>We do not send analytics or telemetry of any kind.</li>
+          <li>We do not include any third-party tracking SDKs.</li>
+          <li>We do not share your data with anyone, because we do not have it.</li>
+          <li>We do not target advertising. There is no advertising in the app.</li>
+        </ul>
+        <p>
+          If you put Lumen in airplane mode and use it normally, nothing breaks.
+          There's nothing to talk to.
+        </p>
+
+        <h2>Permissions</h2>
+        <p>
+          Lumen requests the following permissions, only when you actively use
+          the relevant feature:
+        </p>
+        <ul>
+          <li><strong>Notifications</strong> — for the period / late / fertile reminders you opt into. Notifications are scheduled directly with iOS / Android and never send a push token to a server.</li>
+          <li><strong>Face ID / Touch ID / device passcode</strong> — only if you enable App Lock in Settings. Used to unlock the app; the biometric data itself never leaves your device.</li>
+          <li><strong>HealthKit / Health Connect</strong> <em>(only on builds that include this; opt-in)</em> — to read basal body temperature and write logged period days. Data never leaves your device.</li>
+        </ul>
+        <p>
+          We never request location, microphone, camera, contacts, or calendar
+          access. The "Calendar export" feature creates a <code>.ics</code> file
+          you choose what to do with — Lumen itself does not connect to your
+          calendar.
+        </p>
+
+        <h2>Backups</h2>
+        <p>
+          By default Lumen's database is <strong>excluded from iCloud and Google
+          Drive automatic backup</strong>, so cloud copies of your cycle data
+          don't accumulate without your knowledge.
+        </p>
+        <p>
+          If you want a backup, use Settings → "Export all data". This creates
+          a JSON file on your device which you can save where you wish. To
+          restore, import that file on the same or another device.
+        </p>
+
+        <h2>Children</h2>
+        <p>
+          Lumen is suitable for users from menarche onward and includes a
+          "Teen" mode with age-appropriate copy and a Learn tab covering cycle
+          basics. We do not collect any data from any user, of any age.
+        </p>
+
+        <h2>Changes to this policy</h2>
+        <p>
+          If this policy materially changes (it shouldn't, given the design),
+          the in-app version will update and a "Last updated" date will reflect
+          that. Because we have no servers and no contact details for you, we
+          can't notify you outside the app.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+          Open an issue at the project repository, or write to the support
+          email listed in the App Store / Play Store listing.
+        </p>
+
+        <hr />
+        <p>
+          <em>
+            Lumen is built around the principle that cycle data is your data.
+            The simplest way to honour that is not to have it. That's the
+            entire architecture.
+          </em>
+        </p>
+      </div>
+    </main>
+    <footer>
+      <div class="container">
+        <div>© 2026 Lumen. Local-only cycle tracking.</div>
+        <div><a href="./index.html">← Home</a></div>
+      </div>
+    </footer>
+  </body>
+</html>

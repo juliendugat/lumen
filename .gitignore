@@ -39,3 +39,26 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# EAS / store secrets — never commit
+.secrets/
+*.p8
+*.p12
+*.mobileprovision
+*.keystore
+google-play-service-account.json
+AuthKey_*.p8
+
+# Claude Code per-machine config
+.claude/
+
+# Expo dev-server log + bundle artifacts (regenerable)
+expo-dev.log
+web-bundle.js
+real-bundle.js
+page.html
+smoke*.mjs
+combo.log
+headers-*.txt
+bundle-headers.txt
+dist-audit/
