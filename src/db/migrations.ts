@@ -122,4 +122,21 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_voice_memos_date ON voice_memos(date);
     `,
   },
+  {
+    version: 4,
+    sql: `
+      -- Split the old 'lifeMode' into two axes: life stage (engine) and
+      -- voice (copy). Rename the lifeMode values to the new vocabulary.
+      ALTER TABLE settings ADD COLUMN voice TEXT NOT NULL DEFAULT 'adult';
+
+      -- Carry teen-as-voice over from the old single-axis design.
+      UPDATE settings SET voice = 'teen' WHERE life_mode = 'teen';
+
+      -- Rename the life_mode values. SQLite has no ENUM type, just text;
+      -- safe to do via straight UPDATEs.
+      UPDATE settings SET life_mode = 'cycling' WHERE life_mode IN ('standard', 'teen');
+      UPDATE settings SET life_mode = 'pregnant' WHERE life_mode = 'pregnancy';
+      UPDATE settings SET life_mode = 'perimenopausal' WHERE life_mode = 'perimenopause';
+    `,
+  },
 ];

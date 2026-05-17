@@ -31,6 +31,16 @@ export type CycleRingProps = {
   centerSubLabel?: string;
   /** Tiny label above the big label (e.g. "today"). */
   centerKicker?: string;
+  /**
+   * Number of cycles the user has logged. Drives the visual confidence ramp:
+   *   0 cycles → ring is dotted outline only, fertile arc replaced with a "?"
+   *   1 cycle  → 60% opacity, single confidence band
+   *   2 cycles → 80% opacity
+   *   3+       → full strength
+   * Defaults to a large number when omitted (don't dim if the caller doesn't
+   * know — saves us breaking older callers).
+   */
+  cyclesLogged?: number;
 };
 
 /**
@@ -54,10 +64,21 @@ export function CycleRing({
   centerLabel,
   centerSubLabel,
   centerKicker,
+  cyclesLogged = 999,
 }: CycleRingProps) {
   const t = useTheme();
   const stroke = 14;
-  const radius = (size - stroke) / 2;
+  // The today marker is a circle of radius `markerR` riding on the ring's
+  // centreline. It extends `markerR - stroke/2` pixels past the ring's outer
+  // edge (the "marker overhang"). If the ring's outer edge sits at the SVG
+  // canvas boundary, the marker's outer pixels get clipped by the viewBox —
+  // visible as a missing slice on whichever side of the dot is closest to
+  // the canvas edge (changes with cycle day). Shrink the ring radius by the
+  // overhang so the marker always renders fully inside the canvas.
+  const markerR = 14;
+  const markerStroke = 1.5;
+  const markerOverhang = Math.max(0, markerR + markerStroke / 2 - stroke / 2);
+  const radius = (size - stroke) / 2 - markerOverhang;
   const cx = size / 2;
   const cy = size / 2;
   const circumference = 2 * Math.PI * radius;
@@ -69,27 +90,44 @@ export function CycleRing({
     peakDay: cycleLength - 14,
   };
 
+  // Phase segments. The base ring (full circumference, paperEdge) is rendered
+  // separately as a Circle below — Path arcs can't represent a 360° sweep.
+  //
+  // The four phases each get a distinct token so the ring reads at-a-glance:
+  //   period       — terracotta (flowMedium)
+  //   follicular   — honey       (follicular)
+  //   fertile      — sage        (fertile)
+  //   luteal       — sage-grey   (luteal)
+  // Previously follicular used `predictedSoft` and luteal was the paperEdge
+  // base, which made the ring read as "two phases" at a glance. The honey/sage
+  // tokens already existed in theme.ts and just weren't being used here.
   const segments = useMemo(() => {
     return [
-      // Luteal as the ring base — colored softly.
-      { fromDay: 1, toDay: cycleLength, color: t.palette.paperEdge, key: 'base' },
-      // Follicular (post-period, pre-fertile)
+      // Follicular (post-period, pre-fertile) — honey
       {
         fromDay: periodEnd + 1,
         toDay: Math.max(periodEnd + 1, fert.startDay - 1),
-        color: t.palette.predictedSoft,
+        color: t.palette.follicular,
         key: 'follicular',
       },
-      // Fertile window
+      // Fertile window — sage
       { fromDay: fert.startDay, toDay: fert.endDay, color: t.palette.fertile, key: 'fertile' },
-      // Period
+      // Luteal (post-fertile, pre-next-period) — sage-grey
+      {
+        fromDay: fert.endDay + 1,
+        toDay: cycleLength,
+        color: t.palette.luteal,
+        key: 'luteal',
+      },
+      // Period — terracotta
       { fromDay: 1, toDay: periodEnd, color: t.palette.flowMedium, key: 'period' },
     ];
   }, [cycleLength, periodEnd, fert.startDay, fert.endDay, t.palette]);
 
-  // Marker position
+  // Marker position — anchor at the *centre* of the cycle-day slot so the
+  // dot visually sits "on" day N rather than on the boundary between N-1 and N.
   const dayForMarker = cycleDay ?? 1;
-  const markerAngle = ((dayForMarker - 1) / cycleLength) * 360 - 90;
+  const markerAngle = ((dayForMarker - 0.5) / cycleLength) * 360 - 90;
   const markerX = cx + radius * Math.cos((markerAngle * Math.PI) / 180);
   const markerY = cy + radius * Math.sin((markerAngle * Math.PI) / 180);
 
@@ -124,6 +162,25 @@ export function CycleRing({
     r: 8 * scale.value,
   }));
 
+  // Confidence ramp: until the user has logged ≥ 3 cycles, the ring earns its
+  // colour. 0 cycles renders as a dotted outline only (everything else hidden)
+  // so we don't pretend to predict a fertile window from a default-28 guess.
+  // Matches the "first-cycle screen lies politely" issue from the UX review.
+  const confidence: 'none' | 'low' | 'medium' | 'full' =
+    cyclesLogged <= 0
+      ? 'none'
+      : cyclesLogged === 1
+      ? 'low'
+      : cyclesLogged === 2
+      ? 'medium'
+      : 'full';
+  const segOpacity =
+    confidence === 'none' ? 0 : confidence === 'low' ? 0.6 : confidence === 'medium' ? 0.8 : 1;
+  const baseStyle =
+    confidence === 'none'
+      ? { dasharray: '4 8' as const, opacity: 0.45 }
+      : { dasharray: undefined, opacity: 1 };
+
   return (
     <View style={{ width: size, height: size }}>
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -134,7 +191,37 @@ export function CycleRing({
           </LinearGradient>
         </Defs>
 
-        {segments.map((seg) => (
+        {/* Base ring — full circumference. Dotted when we have no data so the
+            ring doesn't pretend to be a full-color prediction. */}
+        <Circle
+          cx={cx}
+          cy={cy}
+          r={radius}
+          stroke={t.palette.paperEdge}
+          strokeWidth={stroke}
+          fill="none"
+          strokeDasharray={baseStyle.dasharray}
+          opacity={baseStyle.opacity}
+        />
+
+        {/* Zero-data state — instead of painting phase arcs from a guess, drop
+            a single labelled "?" tick where the fertile peak *might* be once
+            the user has logged a period. This honours the "honest about what we
+            don't know" stance of the whole product. */}
+        {confidence === 'none' && (
+          <SvgText
+            x={cx + radius + 12}
+            y={cy + 4}
+            fill={t.palette.inkFaint}
+            fontSize={18}
+            fontWeight="600"
+            textAnchor="start"
+          >
+            ?
+          </SvgText>
+        )}
+
+        {confidence !== 'none' && segments.map((seg) => (
           <ArcSegment
             key={seg.key}
             cx={cx}
@@ -145,18 +232,21 @@ export function CycleRing({
             fromDay={seg.fromDay}
             toDay={seg.toDay}
             cycleLength={cycleLength}
+            opacity={segOpacity}
           />
         ))}
 
-        {/* Tick at peak fertility for orientation */}
-        <PeakTick
-          cx={cx}
-          cy={cy}
-          radius={radius + stroke / 2 + 6}
-          color={t.palette.fertilePeak}
-          day={fert.peakDay}
-          cycleLength={cycleLength}
-        />
+        {/* Tick at peak fertility for orientation — only when we have data. */}
+        {confidence !== 'none' && (
+          <PeakTick
+            cx={cx}
+            cy={cy}
+            radius={radius + stroke / 2 + 6}
+            color={t.palette.fertilePeak}
+            day={fert.peakDay}
+            cycleLength={cycleLength}
+          />
+        )}
 
         {/* Today marker */}
         {cycleDay !== null && (
@@ -164,10 +254,10 @@ export function CycleRing({
             <Circle
               cx={markerX}
               cy={markerY}
-              r={14}
+              r={markerR}
               fill={t.palette.paper}
               stroke={t.palette.ink}
-              strokeWidth={1.5}
+              strokeWidth={markerStroke}
             />
             <AnimatedCircle
               cx={markerX}
@@ -229,15 +319,32 @@ type ArcProps = {
   fromDay: number;
   toDay: number;
   cycleLength: number;
+  opacity?: number;
 };
 
-function ArcSegment({ cx, cy, radius, stroke, color, fromDay, toDay, cycleLength }: ArcProps) {
+function ArcSegment({ cx, cy, radius, stroke, color, fromDay, toDay, cycleLength, opacity = 1 }: ArcProps) {
   if (toDay < fromDay) return null;
+  // Each cycle day owns a slot of width 360/cycleLength degrees. A segment
+  // "day X to day Y inclusive" must span (Y - X + 1) slots, so the start
+  // angle anchors at the *start* of day X and the end angle at the *end*
+  // of day Y (i.e. the start of day Y+1). Using `(toDay - 1) / cycleLength`
+  // here would clip one day off the visual arc and leave a gap before the
+  // next segment.
   const startAngle = ((fromDay - 1) / cycleLength) * 360 - 90;
-  const endAngle = ((toDay - 1) / cycleLength) * 360 - 90;
+  const endAngle = (toDay / cycleLength) * 360 - 90;
   const d = arcPath(cx, cy, radius, startAngle, endAngle);
+  // strokeLinecap="round" makes each segment overlap its neighbour by half
+  // the stroke width — this hides any sub-pixel rendering gap where two
+  // segments meet. Later-drawn segments cover the earlier overlap.
   return (
-    <Path d={d} stroke={color} strokeWidth={stroke} strokeLinecap="round" fill="none" />
+    <Path
+      d={d}
+      stroke={color}
+      strokeWidth={stroke}
+      strokeLinecap="round"
+      fill="none"
+      opacity={opacity}
+    />
   );
 }
 
@@ -256,10 +363,18 @@ function PeakTick({
   day: number;
   cycleLength: number;
 }) {
-  const angle = ((day - 1) / cycleLength) * 360 - 90;
+  const angle = ((day - 0.5) / cycleLength) * 360 - 90;
   const x = cx + radius * Math.cos((angle * Math.PI) / 180);
   const y = cy + radius * Math.sin((angle * Math.PI) / 180);
-  return <Circle cx={x} cy={y} r={3} fill={color} />;
+  // Tick now reads at arm's length on a small phone: 5-px filled dot with a
+  // 1.5-px paper outline so it stands out on any segment colour (vs. the old
+  // r=3 dot which disappeared into the ring).
+  return (
+    <G>
+      <Circle cx={x} cy={y} r={5} fill="none" stroke={color} strokeWidth={1.5} />
+      <Circle cx={x} cy={y} r={3} fill={color} />
+    </G>
+  );
 }
 
 function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {

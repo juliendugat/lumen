@@ -96,11 +96,11 @@ export type PredictOptions = {
   defaultPeriodLength?: number;
   /**
    * Life mode tweaks the prediction:
-   *   - 'perimenopause' relaxes the outlier window and floors σ higher,
+   *   - 'perimenopausal' relaxes the outlier window and floors σ higher,
    *     producing visibly wider bands.
-   *   - 'pregnancy' returns null — predictions are paused.
+   *   - 'pregnant' and 'postpartum' return null — predictions are paused.
    */
-  lifeMode?: 'standard' | 'teen' | 'pregnancy' | 'perimenopause';
+  lifeMode?: 'cycling' | 'pregnant' | 'perimenopausal' | 'postpartum';
 };
 
 /**
@@ -115,14 +115,14 @@ export function predictNext(
   history: CycleHistory,
   options: PredictOptions = {},
 ): Prediction | null {
-  if (options.lifeMode === 'pregnancy') return null;
+  if (options.lifeMode === 'pregnant' || options.lifeMode === 'postpartum') return null;
 
   const starts = [...history.startDates].sort();
   if (starts.length === 0) return null;
 
   const defaultCycle = options.defaultCycleLength ?? DEFAULT_CYCLE_LENGTH;
   const defaultPeriod = options.defaultPeriodLength ?? DEFAULT_PERIOD_LENGTH;
-  const isPerimenopause = options.lifeMode === 'perimenopause';
+  const isPerimenopause = options.lifeMode === 'perimenopausal';
   const sigmaFloor = isPerimenopause ? 6 : 1;
 
   const lengths = cycleLengthsFromStarts(starts);
@@ -143,9 +143,13 @@ export function predictNext(
     cycleSigma = Math.max(sigmaFloor, Math.sqrt(v));
   }
 
+  // Period-length learning needs at least 2 logged periods. With a single
+  // sample we can't tell signal from noise — a user who only logs flow on
+  // day 1 of one period would otherwise pin periodLength to 1 forever and
+  // override the value they set in onboarding / settings.
   const periodLengths = (history.periodLengths ?? []).filter((n) => n >= 1 && n <= 14);
   const periodLength =
-    periodLengths.length > 0
+    periodLengths.length >= 2
       ? Math.max(1, Math.round(weightedMean(periodLengths)))
       : defaultPeriod;
 

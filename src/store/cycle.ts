@@ -25,7 +25,13 @@ import { todayISO, type ISODate, addDaysISO, diffDays } from '@/engine/dates';
 import { rescheduleNotifications } from '@/lib/notifications';
 import type { Day, Settings } from '@/db/schema';
 
-export type LifeMode = 'standard' | 'teen' | 'pregnancy' | 'perimenopause';
+/**
+ * Two independent axes (Mode redesign — UX Review issue 04):
+ *  - LifeMode is the engine axis: what Lumen predicts.
+ *  - Voice is the copy axis: how Lumen talks. Voice owns terminology.
+ */
+export type LifeMode = 'cycling' | 'pregnant' | 'perimenopausal' | 'postpartum';
+export type Voice = 'adult' | 'teen' | 'clinical';
 
 type CycleState = {
   ready: boolean;
@@ -35,6 +41,9 @@ type CycleState = {
   lastStart: ISODate | null;
   todayDay: Day | null;
   cycleDayNum: number | null;
+  /** Total number of cycles the user has logged. Drives the ring's
+   * confidence ramp on the home screen (dotted at 0, full at 3+). */
+  cyclesLogged: number;
   /** When in pregnancy mode, weeks since LMP (or pregnancyStartDate). */
   pregnancyWeek: number | null;
   pregnancyDayInWeek: number | null;
@@ -57,6 +66,7 @@ export const useCycle = create<CycleState>((set, get) => ({
   lastStart: null,
   todayDay: null,
   cycleDayNum: null,
+  cyclesLogged: 0,
   pregnancyWeek: null,
   pregnancyDayInWeek: null,
 
@@ -70,7 +80,7 @@ export const useCycle = create<CycleState>((set, get) => ({
     const lastStart = recent?.startDate ?? null;
     const records = await recentPredictionRecords();
 
-    const lifeMode = (settings.lifeMode ?? 'standard') as LifeMode;
+    const lifeMode = (settings.lifeMode ?? 'cycling') as LifeMode;
 
     let prediction = predictNext(
       {
@@ -105,7 +115,7 @@ export const useCycle = create<CycleState>((set, get) => ({
     // Pregnancy week from LMP (or pregnancyStartDate, fall back to lastStart)
     let pregnancyWeek: number | null = null;
     let pregnancyDayInWeek: number | null = null;
-    if (lifeMode === 'pregnancy') {
+    if (lifeMode === 'pregnant') {
       const anchor = settings.pregnancyLmpDate ?? settings.pregnancyStartDate ?? lastStart;
       if (anchor) {
         const d = diffDays(summary.today, anchor);
@@ -124,6 +134,7 @@ export const useCycle = create<CycleState>((set, get) => ({
       lastStart,
       todayDay: today,
       cycleDayNum: cycleDay(lastStart, summary.today),
+      cyclesLogged: summary.startDates.length,
       pregnancyWeek,
       pregnancyDayInWeek,
     });

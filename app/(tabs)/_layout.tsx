@@ -5,8 +5,10 @@ import { useCycle } from '@/store/cycle';
 
 export default function TabsLayout() {
   const t = useTheme();
-  const lifeMode = useCycle((s) => s.settings?.lifeMode ?? 'standard');
-  const showLearn = lifeMode === 'teen';
+  // Learn tab follows the *voice* axis (teen-voice users see explainers),
+  // not the life-stage axis. A pregnant teen still gets the Learn tab.
+  const voice = useCycle((s) => s.settings?.voice ?? 'adult');
+  const showLearn = voice === 'teen';
   return (
     <Tabs
       screenOptions={{

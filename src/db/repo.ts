@@ -23,7 +23,8 @@ const DEFAULT_SETTINGS: Omit<Settings, 'createdAt' | 'updatedAt'> = {
   terminology: 'period',
   lockEnabled: false,
   fertilityMode: 'off',
-  lifeMode: 'standard',
+  lifeMode: 'cycling',
+  voice: 'adult',
   pregnancyStartDate: null,
   pregnancyLmpDate: null,
   sexLogEnabled: false,
@@ -37,27 +38,49 @@ const DEFAULT_SETTINGS: Omit<Settings, 'createdAt' | 'updatedAt'> = {
   onboardedAt: null,
 };
 
-const VALID_LIFE_MODES = ['standard', 'teen', 'pregnancy', 'perimenopause'] as const;
+const VALID_LIFE_MODES = ['cycling', 'pregnant', 'perimenopausal', 'postpartum'] as const;
+const VALID_VOICES = ['adult', 'teen', 'clinical'] as const;
 const VALID_FERTILITY_MODES = ['off', 'tracking', 'avoidance', 'conception'] as const;
-const VALID_TERMINOLOGIES = ['period', 'cycle', 'menstruation'] as const;
 const VALID_THEME_MODES = ['system', 'light', 'dark'] as const;
 
 function normalizeSettings(row: Settings): Settings {
+  // Translate legacy values when normalisation can do it cleanly. The v4
+  // migration handles the persistent rename, but a row created mid-migration
+  // or copied in via JSON import could still have the old values.
+  const legacyLifeMap: Record<string, (typeof VALID_LIFE_MODES)[number]> = {
+    standard: 'cycling',
+    teen: 'cycling',
+    pregnancy: 'pregnant',
+    perimenopause: 'perimenopausal',
+  };
+  const lifeMode = (() => {
+    if (VALID_LIFE_MODES.includes(row.lifeMode as (typeof VALID_LIFE_MODES)[number])) {
+      return row.lifeMode;
+    }
+    return legacyLifeMap[row.lifeMode] ?? 'cycling';
+  })();
+  // If the old lifeMode was 'teen' and we haven't already lifted voice,
+  // promote it now so legacy data stays sensible.
+  const voice = (() => {
+    const v = (row as unknown as { voice?: string }).voice;
+    if (v && VALID_VOICES.includes(v as (typeof VALID_VOICES)[number])) return v;
+    if (row.lifeMode === 'teen') return 'teen';
+    return 'adult';
+  })();
+
   return {
     ...row,
-    lifeMode: VALID_LIFE_MODES.includes(row.lifeMode as (typeof VALID_LIFE_MODES)[number])
-      ? row.lifeMode
-      : 'standard',
+    lifeMode,
+    voice,
     fertilityMode: VALID_FERTILITY_MODES.includes(
       row.fertilityMode as (typeof VALID_FERTILITY_MODES)[number],
     )
       ? row.fertilityMode
       : 'off',
-    terminology: VALID_TERMINOLOGIES.includes(
-      row.terminology as (typeof VALID_TERMINOLOGIES)[number],
-    )
-      ? row.terminology
-      : 'period',
+    // terminology stays as a stored column for backwards compat but its
+    // value is now derived from voice (adult/teen → "period", clinical →
+    // "menstruation"). Components should read voice rather than terminology.
+    terminology: voice === 'clinical' ? 'menstruation' : 'period',
     themeMode: VALID_THEME_MODES.includes(row.themeMode as (typeof VALID_THEME_MODES)[number])
       ? row.themeMode
       : 'system',

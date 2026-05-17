@@ -1,5 +1,12 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, View, AppState } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Platform,
+  ScrollView,
+  View,
+  AppState,
+  type AppStateStatus,
+} from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -37,6 +44,17 @@ function Bootstrap() {
   const [locked, setLocked] = useState(false);
   const refresh = useCycle((s) => s.refresh);
   const settings = useCycle((s) => s.settings);
+
+  // Auth-prompt mutex: while a Face ID / Touch ID prompt is on-screen, the
+  // app transitions through 'inactive' and back to 'active', which would
+  // otherwise trigger the AppState re-lock below and immediately re-lock the
+  // user the moment they successfully authenticate. We set this true around
+  // the unlock() call to gate that re-lock.
+  const unlocking = useRef(false);
+  // Track the last AppState so we only re-lock on a real background→active
+  // round-trip — not on inactive→active (which is what iOS uses for system
+  // overlays like Face ID, Control Centre, the multitasking switcher).
+  const lastAppState = useRef<AppStateStatus>('active');
 
   // Boot: open DB, ensure key, hydrate state
   useEffect(() => {
@@ -88,7 +106,14 @@ function Bootstrap() {
     })();
 
     const sub = AppState.addEventListener('change', async (state) => {
-      if (state === 'active' && settings.lockEnabled) {
+      const prev = lastAppState.current;
+      lastAppState.current = state;
+      // Skip re-lock while a Face ID / Touch ID prompt is on-screen.
+      if (unlocking.current) return;
+      // Only re-lock on a real background → active round-trip (i.e. user
+      // came back from the home screen / app switcher). 'inactive' → 'active'
+      // covers transient overlays — Control Centre, Face ID prompt, etc.
+      if (state === 'active' && prev === 'background' && settings.lockEnabled) {
         const avail = await isLockAvailable();
         if (avail && mounted) setLocked(true);
       }
@@ -98,6 +123,20 @@ function Bootstrap() {
       sub.remove();
     };
   }, [booted, settings?.lockEnabled]);
+
+  const handleUnlock = async () => {
+    unlocking.current = true;
+    try {
+      const r = await unlock('Unlock Lumen');
+      if (r.ok) setLocked(false);
+    } finally {
+      // Clear after a short tail so any AppState 'active' event that fires
+      // *after* the prompt dismisses still sees unlocking=true and bails.
+      setTimeout(() => {
+        unlocking.current = false;
+      }, 800);
+    }
+  };
 
   if (bootError) {
     const opfsLocked = isOpfsLockError(bootError);
@@ -206,7 +245,7 @@ function Bootstrap() {
   }
 
   if (locked) {
-    return <LockGate onUnlock={() => setLocked(false)} />;
+    return <LockGate onUnlock={handleUnlock} />;
   }
 
   return <Routes />;
@@ -308,7 +347,7 @@ async function clearWebStorage(): Promise<void> {
   }
 }
 
-function LockGate({ onUnlock }: { onUnlock: () => void }) {
+function LockGate({ onUnlock }: { onUnlock: () => Promise<void> | void }) {
   const t = useTheme();
   return (
     <View
@@ -329,9 +368,8 @@ function LockGate({ onUnlock }: { onUnlock: () => void }) {
       </Text>
       <Button
         label="Unlock"
-        onPress={async () => {
-          const r = await unlock('Unlock Lumen');
-          if (r.ok) onUnlock();
+        onPress={() => {
+          void onUnlock();
         }}
       />
     </View>
@@ -377,6 +415,7 @@ function Routes() {
         <Stack.Screen name="privacy" />
         <Stack.Screen name="pregnancy-setup" options={{ presentation: 'modal' }} />
         <Stack.Screen name="diagnostics" />
+        <Stack.Screen name="cycle-defaults" />
       </Stack>
     </>
   );

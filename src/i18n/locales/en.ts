@@ -76,7 +76,7 @@ const en = {
     mostLikely: 'Most likely {0}.',
     window: 'Window: {0}.',
     defaultEstimate:
-      'Using default 28-day estimate. Predictions tighten after a couple of cycles.',
+      'Based on your {0}-day default. Predictions tighten as you log more cycles.',
     fertileKicker: 'FERTILE WINDOW (ESTIMATE)',
     fertileDisclaimer: 'Estimate based on your cycle pattern. Not a contraceptive method.',
     emptyTitle: 'Log your first period to start',

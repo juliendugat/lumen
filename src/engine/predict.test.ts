@@ -103,6 +103,17 @@ describe('predictNext — with history', () => {
     expect(p.confidenceHigh >= p.expectedStart).toBe(true);
   });
 
+  it('falls back to default period length with a single logged period', () => {
+    // Single-sample period history must not override the user's setting —
+    // someone who logged flow on day 1 only would otherwise pin periodLength
+    // to 1 and ignore their 5-day default.
+    const p = predictNext(
+      { startDates: generateStarts([28, 28, 28]), periodLengths: [1] },
+      { defaultPeriodLength: 5 },
+    )!;
+    expect(p.periodLength).toBe(5);
+  });
+
   it('uses period length history when supplied', () => {
     const p = predictNext({
       startDates: generateStarts([28, 28, 28]),

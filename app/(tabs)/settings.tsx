@@ -26,12 +26,18 @@ export default function Settings() {
   const { settings, prediction, fertile, patchSettings, exportData, wipe } = useCycle();
   const [busy, setBusy] = useState<string | null>(null);
   const [notifStatus, setNotifStatus] = useState<PermissionStatus>('unsupported');
+  // Health sync only exists when a custom dev client has the native module
+  // bundled. Otherwise the row is a dead-end — hide it rather than showing
+  // an alert "Not available on this build" every time the user taps it.
+  const [healthAvailable, setHealthAvailable] = useState<boolean>(false);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       const s = await getPermissionStatus();
       if (alive) setNotifStatus(s);
+      const hs = await isHealthSyncAvailable();
+      if (alive) setHealthAvailable(hs);
     })();
     return () => {
       alive = false;
@@ -47,7 +53,8 @@ export default function Settings() {
 
   if (!settings) return null;
 
-  const lifeMode = settings.lifeMode as 'standard' | 'teen' | 'pregnancy' | 'perimenopause';
+  const lifeMode = settings.lifeMode as 'cycling' | 'pregnant' | 'perimenopausal' | 'postpartum';
+  const voice = (settings.voice ?? 'adult') as 'adult' | 'teen' | 'clinical';
 
   const toggleLock = async (next: boolean) => {
     if (next) {
@@ -185,109 +192,60 @@ export default function Settings() {
           <Text variant="h1">Lumen</Text>
         </View>
 
-        <Section title="Mode">
+        {/* ─── YOU ─── Life stage + Voice + Reminders + Quick-bar.
+            The most-touched preferences live at the top. */}
+        <Section title="You">
           <SegmentedRow
-            title="Life mode"
+            title="Life stage"
             options={[
-              { value: 'standard', label: 'Standard' },
-              { value: 'teen', label: 'Teen' },
-              { value: 'pregnancy', label: 'Pregnancy' },
-              { value: 'perimenopause', label: 'Perimeno' },
+              { value: 'cycling', label: 'Cycling' },
+              { value: 'pregnant', label: 'Pregnant' },
+              { value: 'perimenopausal', label: 'Perimeno' },
+              { value: 'postpartum', label: 'Postpartum' },
             ]}
             value={lifeMode}
-            onChange={(v) => patchSettings({ lifeMode: v })}
+            onChange={(v) => {
+              if (v === 'pregnant') {
+                router.push('/pregnancy-setup');
+                return;
+              }
+              patchSettings({ lifeMode: v });
+            }}
           />
-          {lifeMode === 'teen' && (
-            <Hint>Friendlier copy and a Learn tab with body-literacy explainers.</Hint>
+          {lifeMode === 'pregnant' && (
+            <Hint>Cycle predictions are paused. Home shows weeks-pregnant.</Hint>
           )}
-          {lifeMode === 'pregnancy' && (
-            <Hint>
-              Cycle predictions are paused. Home shows weeks-pregnant.
-              {' '}Set last menstrual period below.
-            </Hint>
-          )}
-          {lifeMode === 'perimenopause' && (
+          {lifeMode === 'perimenopausal' && (
             <Hint>Variability is wider; predictions show wider windows and don't pretend to be precise.</Hint>
           )}
-        </Section>
-
-        <Section title="Privacy">
-          <Row
-            icon="lock"
-            title="App lock"
-            subtitle="Require Face ID, Touch ID, or device passcode."
-            right={
-              <Switch
-                value={settings.lockEnabled}
-                onValueChange={toggleLock}
-                disabled={Platform.OS === 'web'}
-              />
-            }
-          />
-          <RowAction
-            icon="note"
-            title="Privacy policy"
-            subtitle="What's on this device, and what isn't sent."
-            onPress={() => router.push('/privacy')}
-          />
-          <RowAction
-            icon="export"
-            title="Export all data (JSON)"
-            subtitle="Plain JSON. Save somewhere private."
-            onPress={exportJson}
-            busy={busy === 'json'}
-          />
-          <RowAction
-            icon="trash"
-            title="Delete all data"
-            subtitle="Wipe everything from this device."
-            onPress={confirmWipe}
-            danger
-            busy={busy === 'wipe'}
-          />
-        </Section>
-
-        <Section title="Logging options">
-          <Row
-            icon="heart"
-            title="Sex & protection log"
-            subtitle="Adds an opt-in section in the day log."
-            right={
-              <Switch
-                value={settings.sexLogEnabled}
-                onValueChange={(v) => patchSettings({ sexLogEnabled: v })}
-              />
-            }
-          />
-          <RowAction
-            icon="sparkle"
-            title="Customize quick-bar"
-            subtitle="Pick which 3-6 chips appear on the home screen."
-            onPress={() => router.push('/customize-quickbar')}
-          />
-          <SegmentedRow
-            title="Fertility tracking"
-            options={[
-              { value: 'off', label: 'Off' },
-              { value: 'tracking', label: 'Track' },
-              { value: 'avoidance', label: 'Avoid' },
-              { value: 'conception', label: 'TTC' },
-            ]}
-            value={settings.fertilityMode}
-            onChange={(v) => patchSettings({ fertilityMode: v })}
-          />
-          {settings.fertilityMode !== 'off' && (
-            <Hint>BBT and cervical mucus appear in the day log. Estimates are not contraception.</Hint>
+          {lifeMode === 'postpartum' && (
+            <Hint>Predictions paused while cycles return. Resumes once Lumen has logged data.</Hint>
           )}
-          <RowAction
-            icon="pill"
-            title="Medications"
-            subtitle="Pill, IUD, implant, anything else. Reminders included."
-            onPress={() => router.push('/medications')}
-          />
-        </Section>
 
-        <Section title="Reminders">
+          <SegmentedRow
+            title="Voice"
+            options={[
+              { value: 'adult', label: 'Adult' },
+              { value: 'teen', label: 'Teen' },
+              { value: 'clinical', label: 'Clinical' },
+            ]}
+            value={voice}
+            onChange={(v) => {
+              // Voice owns terminology: clinical → "menstruation",
+              // others → "period". Stored alongside for backwards compat.
+              patchSettings({
+                voice: v,
+                terminology: v === 'clinical' ? 'menstruation' : 'period',
+              });
+            }}
+          />
+          {voice === 'teen' && (
+            <Hint>Friendlier copy and a Learn tab with body-literacy explainers.</Hint>
+          )}
+          {voice === 'clinical' && (
+            <Hint>Precise terminology ("menstruation", "ovulation"). No hedging.</Hint>
+          )}
+
           {showNotifWarning && (
             <View
               style={{
@@ -304,8 +262,7 @@ export default function Settings() {
                 Notifications are off in your phone settings
               </Text>
               <Text variant="caption" color={t.palette.inkMuted}>
-                Lumen has reminders enabled but the OS has them blocked. Open your
-                phone's Settings → Lumen → Notifications to allow them.
+                Lumen has reminders enabled but the OS has them blocked.
               </Text>
             </View>
           )}
@@ -344,7 +301,68 @@ export default function Settings() {
           />
         </Section>
 
-        <Section title="Share & export">
+        {/* ─── LOGGING ─── Fertility, sex log, meds, defaults. */}
+        <Section title="Logging">
+          <RowAction
+            icon="flower"
+            title="Cycle defaults"
+            subtitle={`${settings.defaultCycleLength}-day cycle, ${settings.defaultPeriodLength}-day period.`}
+            onPress={() => router.push('/cycle-defaults')}
+          />
+          <SegmentedRow
+            title="Fertility tracking"
+            options={[
+              { value: 'off', label: 'Off' },
+              { value: 'tracking', label: 'Track' },
+              { value: 'avoidance', label: 'Avoid' },
+              { value: 'conception', label: 'TTC' },
+            ]}
+            value={settings.fertilityMode}
+            onChange={(v) => patchSettings({ fertilityMode: v })}
+          />
+          {settings.fertilityMode !== 'off' && (
+            <Hint>BBT and cervical mucus appear in the day log. Estimates are not contraception.</Hint>
+          )}
+          <Row
+            icon="heart"
+            title="Sex & protection log"
+            subtitle="Adds an opt-in section in the day log."
+            right={
+              <Switch
+                value={settings.sexLogEnabled}
+                onValueChange={(v) => patchSettings({ sexLogEnabled: v })}
+              />
+            }
+          />
+          <RowAction
+            icon="pill"
+            title="Medications"
+            subtitle="Pill, IUD, implant, anything else. Reminders included."
+            onPress={() => router.push('/medications')}
+          />
+        </Section>
+
+        {/* ─── PRIVACY & DATA ─── App lock, exports, policy. All non-
+            destructive. Delete-all moved to its own danger zone. */}
+        <Section title="Privacy & data">
+          <Row
+            icon="lock"
+            title="App lock"
+            subtitle="Require Face ID, Touch ID, or device passcode."
+            right={
+              <Switch
+                value={settings.lockEnabled}
+                onValueChange={toggleLock}
+                disabled={Platform.OS === 'web'}
+              />
+            }
+          />
+          <RowAction
+            icon="note"
+            title="Privacy policy"
+            subtitle="What's on this device, and what isn't sent."
+            onPress={() => router.push('/privacy')}
+          />
           <RowAction
             icon="export"
             title="Calendar export (.ics)"
@@ -368,39 +386,65 @@ export default function Settings() {
             busy={busy === 'partner'}
           />
           <RowAction
-            icon="sparkle"
-            title="Health sync"
-            subtitle="HealthKit / Health Connect (custom build only)."
-            onPress={tryHealthSync}
-            busy={busy === 'health'}
+            icon="export"
+            title="Export all data (JSON)"
+            subtitle="Plain JSON. Save somewhere private."
+            onPress={exportJson}
+            busy={busy === 'json'}
           />
+          {healthAvailable && (
+            <RowAction
+              icon="sparkle"
+              title="Health sync"
+              subtitle="HealthKit / Health Connect"
+              onPress={tryHealthSync}
+              busy={busy === 'health'}
+            />
+          )}
         </Section>
 
-        <Section title="Wording">
-          <SegmentedRow
-            title="Term used in the app"
-            options={[
-              { value: 'period', label: 'Period' },
-              { value: 'cycle', label: 'Cycle' },
-              { value: 'menstruation', label: 'Menstruation' },
-            ]}
-            value={settings.terminology}
-            onChange={(v) => patchSettings({ terminology: v })}
-          />
-        </Section>
-
-        <Section title="About">
-          <RowAction
-            icon="sparkle"
-            title="Diagnostics"
-            subtitle="Storage stats and integrity check."
-            onPress={() => router.push('/diagnostics')}
-          />
-          <Text variant="caption" color={t.palette.inkMuted} style={{ paddingHorizontal: t.spacing.lg, paddingVertical: t.spacing.md }}>
-            Lumen 0.2 — local-only cycle tracking. No accounts, no servers, no
-            tracking. Your data lives on this device.
+        {/* ─── DANGER ZONE ─── Destructive actions, visually segregated
+            so they don't read as peer to "Export". */}
+        <View style={{ gap: t.spacing.sm }}>
+          <Text variant="micro" color={t.palette.error}>
+            DANGER ZONE
           </Text>
-        </Section>
+          <Card
+            padded={false}
+            style={{
+              borderWidth: 1,
+              borderColor: t.palette.error,
+              backgroundColor: t.palette.paper,
+            }}
+          >
+            <RowAction
+              icon="trash"
+              title="Delete all data"
+              subtitle="Wipe everything from this device. Cannot be undone."
+              onPress={confirmWipe}
+              danger
+              busy={busy === 'wipe'}
+            />
+          </Card>
+        </View>
+
+        {/* Version string with long-press to open diagnostics. Most users
+            never need diagnostics; debug users will find it. */}
+        <Pressable
+          onLongPress={() => router.push('/diagnostics')}
+          accessibilityRole="text"
+          accessibilityHint="Long-press to open diagnostics"
+          delayLongPress={600}
+        >
+          <Text
+            variant="caption"
+            color={t.palette.inkFaint}
+            align="center"
+            style={{ paddingVertical: t.spacing.lg }}
+          >
+            Lumen 0.2 · local-only cycle tracking
+          </Text>
+        </Pressable>
       </VStack>
     </Screen>
   );

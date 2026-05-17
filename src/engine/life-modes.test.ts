@@ -3,26 +3,24 @@ import { predictNext } from './predict';
 import { addDaysISO } from './dates';
 
 describe('predictNext — life-mode handling', () => {
-  it('returns null in pregnancy mode regardless of history', () => {
+  it('returns null in pregnant mode regardless of history', () => {
     const starts = ['2026-01-01', '2026-01-29', '2026-02-26'];
-    expect(predictNext({ startDates: starts }, { lifeMode: 'pregnancy' })).toBeNull();
-    expect(predictNext({ startDates: ['2026-01-01'] }, { lifeMode: 'pregnancy' })).toBeNull();
-    expect(predictNext({ startDates: [] }, { lifeMode: 'pregnancy' })).toBeNull();
+    expect(predictNext({ startDates: starts }, { lifeMode: 'pregnant' })).toBeNull();
+    expect(predictNext({ startDates: ['2026-01-01'] }, { lifeMode: 'pregnant' })).toBeNull();
+    expect(predictNext({ startDates: [] }, { lifeMode: 'pregnant' })).toBeNull();
   });
 
-  it('produces wider band in perimenopause vs standard for the same regular history', () => {
+  it('returns null in postpartum mode regardless of history', () => {
+    const starts = ['2026-01-01', '2026-01-29', '2026-02-26'];
+    expect(predictNext({ startDates: starts }, { lifeMode: 'postpartum' })).toBeNull();
+    expect(predictNext({ startDates: [] }, { lifeMode: 'postpartum' })).toBeNull();
+  });
+
+  it('produces wider band in perimenopausal vs cycling for the same regular history', () => {
     const start = '2026-01-01';
     const starts = [start, addDaysISO(start, 28), addDaysISO(start, 56), addDaysISO(start, 84)];
-    const standard = predictNext({ startDates: starts }, { lifeMode: 'standard' })!;
-    const peri = predictNext({ startDates: starts }, { lifeMode: 'perimenopause' })!;
-    expect(peri.cycleSigma).toBeGreaterThan(standard.cycleSigma);
-  });
-
-  it('teen mode behaves like standard for predictions (only copy differs)', () => {
-    const starts = ['2026-01-01', '2026-01-29', '2026-02-26'];
-    const teen = predictNext({ startDates: starts }, { lifeMode: 'teen' })!;
-    const standard = predictNext({ startDates: starts }, { lifeMode: 'standard' })!;
-    expect(teen.expectedStart).toBe(standard.expectedStart);
-    expect(teen.cycleLength).toBe(standard.cycleLength);
+    const cycling = predictNext({ startDates: starts }, { lifeMode: 'cycling' })!;
+    const peri = predictNext({ startDates: starts }, { lifeMode: 'perimenopausal' })!;
+    expect(peri.cycleSigma).toBeGreaterThan(cycling.cycleSigma);
   });
 });

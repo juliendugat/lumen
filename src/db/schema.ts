@@ -56,8 +56,19 @@ export const settings = sqliteTable('settings', {
   terminology: text('terminology').notNull().default('period'),
   lockEnabled: integer('lock_enabled', { mode: 'boolean' }).notNull().default(false),
   fertilityMode: text('fertility_mode').notNull().default('off'), // 'off' | 'tracking' | 'avoidance' | 'conception'
-  /** Life-cycle mode: 'standard' | 'teen' | 'pregnancy' | 'perimenopause' */
-  lifeMode: text('life_mode').notNull().default('standard'),
+  /**
+   * Life stage — the engine axis. What Lumen is predicting.
+   * 'cycling' | 'pregnant' | 'perimenopausal' | 'postpartum'
+   * (Migrated from the old 'standard/teen/pregnancy/perimenopause' field
+   * via v4. 'teen' moved over to `voice`.)
+   */
+  lifeMode: text('life_mode').notNull().default('cycling'),
+  /**
+   * Voice — the copy axis. How Lumen talks.
+   * 'adult' | 'teen' | 'clinical'. Owns terminology: adult/teen default to
+   * "period", clinical uses "menstruation".
+   */
+  voice: text('voice').notNull().default('adult'),
   /** ISO date when pregnancy mode was enabled — used for weeks-pregnant calc. */
   pregnancyStartDate: text('pregnancy_start_date'),
   /** ISO date — last menstrual period for pregnancy week calc; if absent, falls back to mostRecentCycle. */

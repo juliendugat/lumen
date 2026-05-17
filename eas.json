@@ -33,7 +33,7 @@
     },
     "preview": {
       "extends": "base",
-      "distribution": "internal",
+      "distribution": "store",
       "channel": "preview",
       "env": {
         "BABEL_ENV": "production",
@@ -43,7 +43,7 @@
         "resourceClass": "m-medium"
       },
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle"
       }
     },
     "production": {
@@ -66,9 +66,7 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "REPLACE_WITH_YOUR_APPLE_ID@example.com",
-        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
+        "appleTeamId": "Y9SR6SKL93"
       },
       "android": {
         "serviceAccountKeyPath": "./.secrets/google-play-service-account.json",

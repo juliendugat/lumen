@@ -1,9 +1,11 @@
-import { type LifeMode } from '@/store/cycle';
+import { type LifeMode, type Voice } from '@/store/cycle';
 
 /**
- * Tone-aware copy. Returns plain strings for the current life-mode + terminology
- * setting. Teen mode uses friendlier, education-first language. Pregnancy and
- * perimenopause modes also adjust framing.
+ * Tone-aware copy. Two axes from the UX-review Mode redesign:
+ *  - lifeMode (engine): cycling / pregnant / perimenopausal / postpartum
+ *  - voice    (copy)  : adult / teen / clinical
+ *
+ * Voice wins on tone; lifeMode wins on framing.
  */
 
 export type Term = 'period' | 'cycle' | 'menstruation';
@@ -17,10 +19,9 @@ type Bag = {
   notesPrompt: string;
 };
 
-const standard: Bag = {
+const adultCycling: Bag = {
   homeKicker: 'today',
-  predictHeadline: (n, label) =>
-    n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : `In ${n} days`,
+  predictHeadline: (n) => (n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : `In ${n} days`),
   fertileLabel: 'Fertile window (estimate)',
   fertileSub: 'Estimate based on your cycle pattern. Not a contraceptive method.',
   emptyHomeBody:
@@ -28,9 +29,9 @@ const standard: Bag = {
   notesPrompt: 'Anything worth remembering?',
 };
 
-const teen: Bag = {
+const teenCycling: Bag = {
   homeKicker: 'today',
-  predictHeadline: (n, _label) =>
+  predictHeadline: (n) =>
     n === 0 ? 'Today, maybe' : n === 1 ? 'Around tomorrow' : `In about ${n} days`,
   fertileLabel: 'Most likely fertile days',
   fertileSub:
@@ -40,8 +41,20 @@ const teen: Bag = {
   notesPrompt: 'Anything you want to remember about today?',
 };
 
+const clinicalCycling: Bag = {
+  homeKicker: 'today',
+  predictHeadline: (n) =>
+    n === 0 ? 'Expected today' : n === 1 ? 'Expected tomorrow' : `Expected in ${n} days`,
+  fertileLabel: 'Estimated fertile window',
+  fertileSub:
+    'Computed from the recency-weighted cycle mean. Estimate, not a contraceptive method.',
+  emptyHomeBody:
+    "Log today's flow, symptoms, BBT, mucus, or notes. Data is stored locally only.",
+  notesPrompt: 'Notes for this day:',
+};
+
 const pregnancy: Bag = {
-  ...standard,
+  ...adultCycling,
   homeKicker: 'pregnancy',
   predictHeadline: () => 'Tracking your pregnancy',
   fertileLabel: 'Cycle predictions paused',
@@ -49,24 +62,49 @@ const pregnancy: Bag = {
     'Period and fertile-window predictions are paused while pregnancy mode is on.',
 };
 
-const perimenopause: Bag = {
-  ...standard,
-  predictHeadline: (n, _label) =>
-    n <= 0 ? 'Window has started' : `Roughly in ${n} days`,
+const postpartum: Bag = {
+  ...adultCycling,
+  homeKicker: 'postpartum',
+  predictHeadline: () => 'Postpartum',
+  fertileLabel: 'Cycle predictions paused',
+  fertileSub:
+    'Cycles return on their own schedule after birth. Predictions resume once Lumen has logged data.',
+};
+
+const perimenopausal: Bag = {
+  ...adultCycling,
+  predictHeadline: (n) => (n <= 0 ? 'Window has started' : `Roughly in ${n} days`),
   fertileSub:
     'Cycle variability rises in perimenopause — windows are wider and predictions are best-effort.',
 };
 
-export function getCopy(mode: LifeMode): Bag {
-  switch (mode) {
-    case 'teen':
-      return teen;
-    case 'pregnancy':
-      return pregnancy;
-    case 'perimenopause':
-      return perimenopause;
+/**
+ * Returns the right copy bundle for the active life-mode + voice combination.
+ * Pregnancy/perimenopausal/postpartum bundles inherit the active voice's
+ * cycling bundle as a base, so a clinical pregnancy still reads clinical.
+ */
+export function getCopy(lifeMode: LifeMode, voice: Voice = 'adult'): Bag {
+  switch (lifeMode) {
+    case 'pregnant':
+      return { ...pickCycling(voice), ...pregnancy };
+    case 'postpartum':
+      return { ...pickCycling(voice), ...postpartum };
+    case 'perimenopausal':
+      return { ...pickCycling(voice), ...perimenopausal };
+    case 'cycling':
     default:
-      return standard;
+      return pickCycling(voice);
+  }
+}
+
+function pickCycling(voice: Voice): Bag {
+  switch (voice) {
+    case 'teen':
+      return teenCycling;
+    case 'clinical':
+      return clinicalCycling;
+    default:
+      return adultCycling;
   }
 }
 
@@ -79,4 +117,9 @@ export function termPlural(term: Term): string {
     case 'menstruation':
       return 'menstrual periods';
   }
+}
+
+/** Voice → user-visible default term. Used when no explicit term override exists. */
+export function termForVoice(voice: Voice): Term {
+  return voice === 'clinical' ? 'menstruation' : 'period';
 }
