@@ -25,6 +25,7 @@ import { PhaseStrip, PhaseLegend } from '@/features/phase-strip/PhaseStrip';
 import { fromISO, diffDays, addDaysISO } from '@/engine/dates';
 import { reinforcing } from '@/features/home/headline';
 import { classifyVariation, variationCopy } from '@/engine/health-signals';
+import { useCopy } from '@/copy/useCopy';
 
 type TabKey = 'overview' | 'trends' | 'fertility' | 'symptoms';
 
@@ -70,6 +71,23 @@ export default function Insights() {
 
   const noData = !stats || stats.cycles < 1;
 
+  // The Fertility tab only makes sense when the user is tracking fertility.
+  const fertilityOn =
+    !!cycle.settings?.fertilityMode && cycle.settings.fertilityMode !== 'off';
+
+  // If fertility tracking gets switched off while the Fertility tab is open,
+  // fall back to Overview so we never show an orphaned/empty tab.
+  useEffect(() => {
+    if (!fertilityOn && tab === 'fertility') setTab('overview');
+  }, [fertilityOn, tab]);
+
+  const tabs = [
+    { value: 'overview', label: 'Overview' },
+    { value: 'trends', label: 'Trends' },
+    ...(fertilityOn ? [{ value: 'fertility', label: 'Fertility' }] : []),
+    { value: 'symptoms', label: 'Symptoms' },
+  ];
+
   return (
     <Screen padded={false}>
       <View style={{ paddingHorizontal: t.spacing.lg, paddingTop: t.spacing.lg, paddingBottom: t.spacing.md }}>
@@ -80,12 +98,7 @@ export default function Insights() {
       </View>
 
       <Tabs
-        tabs={[
-          { value: 'overview', label: 'Overview' },
-          { value: 'trends', label: 'Trends' },
-          { value: 'fertility', label: 'Fertility' },
-          { value: 'symptoms', label: 'Symptoms' },
-        ]}
+        tabs={tabs}
         value={tab}
         onChange={(v) => setTab(v as TabKey)}
       />
@@ -141,6 +154,7 @@ function OverviewTab({
   perCycle: PerCycleStat[];
 }) {
   const t = useTheme();
+  const { term } = useCopy();
   const settings = useCycle((s) => s.settings);
   const cycleLength = settings?.defaultCycleLength ?? 28;
   const periodLength = settings?.defaultPeriodLength ?? 5;
@@ -150,8 +164,26 @@ function OverviewTab({
   const lastTwo = perCycle.slice(-2);
   const lastClosed = lastTwo.find((c) => c.cycleLength != null);
 
+  // Averages and regularity need a *completed* cycle to measure — i.e. a
+  // second period start. Until then most tiles read "—", which looks broken
+  // without a word of explanation. Mirror the "No patterns yet" copy elsewhere.
+  const awaitingSecondCycle = stats.avg === null;
+
   return (
     <VStack gap="lg">
+      {awaitingSecondCycle && (
+        <Card style={{ backgroundColor: t.palette.lutealSoft }}>
+          <VStack gap="xs">
+            <Text variant="bodyStrong">Gathering your baseline</Text>
+            <Text variant="caption" color={t.palette.inkMuted}>
+              Averages and regularity appear once you've logged a second {term} —
+              that's the first full cycle we can measure. For now you'll see your
+              current cycle below; the rest fills in as you go.
+            </Text>
+          </VStack>
+        </Card>
+      )}
+
       <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
         <View style={{ flex: 1 }}>
           <Card>
@@ -238,6 +270,7 @@ function TrendsTab({
   };
 }) {
   const t = useTheme();
+  const { Term } = useCopy();
   const settings = useCycle((s) => s.settings);
   const periodLength = settings?.defaultPeriodLength ?? 5;
   const closed = perCycle.filter((c) => c.cycleLength != null);
@@ -373,7 +406,7 @@ function TrendsTab({
               yMax={Math.max(8, Math.max(...(periodSeries.filter((v) => v != null) as number[])) + 1)}
             />
             <Text variant="caption" color={t.palette.inkMuted}>
-              Period days
+              {Term} days
             </Text>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
               {xLabels.map((l, i) => (
@@ -712,9 +745,10 @@ function SymptomPhaseDonut({
   days: DayPoint[];
 }) {
   const t = useTheme();
+  const { Term } = useCopy();
   const counts = phaseSegmentCounts(symptom, days);
   const segs = [
-    { value: counts.period, color: t.palette.flowMedium, label: 'Period' },
+    { value: counts.period, color: t.palette.flowMedium, label: Term },
     { value: counts.follicular, color: t.palette.follicular, label: 'Follicular' },
     { value: counts.ovulation, color: t.palette.ovulation, label: 'Ovulation' },
     { value: counts.luteal, color: t.palette.luteal, label: 'Luteal' },

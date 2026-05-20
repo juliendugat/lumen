@@ -36,13 +36,17 @@ export default function Onboarding() {
   const t = useTheme();
   const router = useRouter();
   const cycle = useCycle();
-  const [choice, setChoice] = useState<LastPeriodChoice>({ kind: 'days-ago', days: 3 });
+  // Start with nothing selected so users actively pick a chip before hitting
+  // the finish button — pre-selecting "3 days ago" was letting people sail
+  // through onboarding without ever recording their real last-period date.
+  const [choice, setChoice] = useState<LastPeriodChoice | null>(null);
   const [cycleLen, setCycleLen] = useState(28);
   const [reminders, setReminders] = useState(true);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const lastPeriodIso = useMemo<ISODate | null>(() => {
+    if (!choice) return null;
     switch (choice.kind) {
       case 'today':
         return todayISO();
@@ -118,7 +122,7 @@ export default function Onboarding() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
             <ChipChoice
               label="Today"
-              selected={choice.kind === 'today'}
+              selected={choice?.kind === 'today'}
               onPress={() => {
                 setDatePickerOpen(false);
                 setChoice({ kind: 'today' });
@@ -126,7 +130,7 @@ export default function Onboarding() {
             />
             <ChipChoice
               label="3 days ago"
-              selected={choice.kind === 'days-ago' && choice.days === 3}
+              selected={choice?.kind === 'days-ago' && choice.days === 3}
               onPress={() => {
                 setDatePickerOpen(false);
                 setChoice({ kind: 'days-ago', days: 3 });
@@ -134,7 +138,7 @@ export default function Onboarding() {
             />
             <ChipChoice
               label="A week ago"
-              selected={choice.kind === 'days-ago' && choice.days === 7}
+              selected={choice?.kind === 'days-ago' && choice.days === 7}
               onPress={() => {
                 setDatePickerOpen(false);
                 setChoice({ kind: 'days-ago', days: 7 });
@@ -142,10 +146,10 @@ export default function Onboarding() {
             />
             <ChipChoice
               label="Pick a date"
-              selected={choice.kind === 'date'}
+              selected={choice?.kind === 'date'}
               onPress={() => {
                 setDatePickerOpen(true);
-                if (choice.kind !== 'date') {
+                if (choice?.kind !== 'date') {
                   setChoice({ kind: 'date', date: addDaysISO(todayISO(), -3) });
                 }
               }}
@@ -153,7 +157,7 @@ export default function Onboarding() {
             <ChipChoice
               muted
               label="Don't know yet"
-              selected={choice.kind === 'unknown'}
+              selected={choice?.kind === 'unknown'}
               onPress={() => {
                 setDatePickerOpen(false);
                 setChoice({ kind: 'unknown' });
@@ -161,7 +165,7 @@ export default function Onboarding() {
             />
           </View>
 
-          {datePickerOpen && choice.kind === 'date' && (
+          {datePickerOpen && choice?.kind === 'date' && (
             <View
               style={{
                 backgroundColor: t.palette.paperDeep,
@@ -219,7 +223,7 @@ export default function Onboarding() {
 
       <View style={{ marginTop: t.spacing.xxl, gap: t.spacing.sm }}>
         <Button
-          label={busy ? 'Setting up…' : 'Open Lumen'}
+          label={busy ? 'Setting up…' : 'Finish setup'}
           fullWidth
           onPress={finish}
           disabled={busy}

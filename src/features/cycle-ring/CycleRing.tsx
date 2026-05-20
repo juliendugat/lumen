@@ -41,6 +41,12 @@ export type CycleRingProps = {
    * know — saves us breaking older callers).
    */
   cyclesLogged?: number;
+  /**
+   * Whether to draw the peak-fertility (ovulation) dot. Gated on the user's
+   * fertility-tracking setting — off by default, so non-fertility users don't
+   * get an ovulation marker they never asked for. Defaults to true.
+   */
+  showPeak?: boolean;
 };
 
 /**
@@ -65,6 +71,7 @@ export function CycleRing({
   centerSubLabel,
   centerKicker,
   cyclesLogged = 999,
+  showPeak = true,
 }: CycleRingProps) {
   const t = useTheme();
   const stroke = 14;
@@ -236,13 +243,16 @@ export function CycleRing({
           />
         ))}
 
-        {/* Tick at peak fertility for orientation — only when we have data. */}
-        {confidence !== 'none' && (
+        {/* Tick at peak fertility for orientation — only when we have data and
+            the user is tracking fertility. Drawn on the ring centreline so it
+            reads as part of the fertile arc rather than a floating pin. */}
+        {confidence !== 'none' && showPeak && (
           <PeakTick
             cx={cx}
             cy={cy}
-            radius={radius + stroke / 2 + 6}
+            radius={radius}
             color={t.palette.fertilePeak}
+            bgColor={t.palette.paper}
             day={fert.peakDay}
             cycleLength={cycleLength}
           />
@@ -353,6 +363,7 @@ function PeakTick({
   cy,
   radius,
   color,
+  bgColor,
   day,
   cycleLength,
 }: {
@@ -360,18 +371,20 @@ function PeakTick({
   cy: number;
   radius: number;
   color: string;
+  bgColor: string;
   day: number;
   cycleLength: number;
 }) {
   const angle = ((day - 0.5) / cycleLength) * 360 - 90;
   const x = cx + radius * Math.cos((angle * Math.PI) / 180);
   const y = cy + radius * Math.sin((angle * Math.PI) / 180);
-  // Tick now reads at arm's length on a small phone: 5-px filled dot with a
-  // 1.5-px paper outline so it stands out on any segment colour (vs. the old
-  // r=3 dot which disappeared into the ring).
+  // A coloured dot inside a paper "halo" so the ovulation peak reads clearly
+  // against any segment — including the sage fertile arc it usually sits on,
+  // where a flat dot would blend in. Sits on the ring centreline, not outside,
+  // so it never looks like a stray pin at the edge of the ring.
   return (
     <G>
-      <Circle cx={x} cy={y} r={5} fill="none" stroke={color} strokeWidth={1.5} />
+      <Circle cx={x} cy={y} r={5.5} fill={bgColor} />
       <Circle cx={x} cy={y} r={3} fill={color} />
     </G>
   );

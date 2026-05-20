@@ -23,10 +23,14 @@ import { useAppFonts } from '@/ui/fonts';
 import { ErrorBoundary } from '@/ui/ErrorBoundary';
 
 export default function RootLayout() {
+  // Honor the user's Appearance preference. 'system' (or unset) → follow the
+  // OS; 'light'/'dark' → force that palette via ThemeProvider's override.
+  const themeMode = useCycle((s) => s.settings?.themeMode);
+  const override = themeMode === 'light' ? 'light' : themeMode === 'dark' ? 'dark' : undefined;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ThemeProvider>
+        <ThemeProvider override={override}>
           <ErrorBoundary>
             <Bootstrap />
           </ErrorBoundary>

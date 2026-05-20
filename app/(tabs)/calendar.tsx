@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { addMonths, addDays, format, isSameDay, startOfMonth, startOfWeek, endOfMonth } from 'date-fns';
 import { Screen } from '@/ui/components/Screen';
 import { Text } from '@/ui/components/Text';
 import { useTheme } from '@/ui/ThemeProvider';
 import { useCycle } from '@/store/cycle';
+import { useCopy } from '@/copy/useCopy';
 import { addDaysISO, toISO, type ISODate } from '@/engine/dates';
 import { type Day } from '@/db/schema';
 
@@ -19,8 +20,11 @@ type DayMap = Map<ISODate, Day>;
 export default function CalendarTab() {
   const t = useTheme();
   const router = useRouter();
-  const { prediction, fertile, loadDays } = useCycle();
+  const { prediction, fertile, loadDays, settings } = useCycle();
   const [dayMap, setDayMap] = useState<DayMap>(new Map());
+  // Fertile windows are only meaningful (and only shown) when the user is
+  // actively tracking fertility. Off by default.
+  const fertilityOn = !!settings?.fertilityMode && settings.fertilityMode !== 'off';
 
   // Build the month list: -1, 0 (current), +1..+4
   const months = useMemo(() => {
@@ -56,7 +60,7 @@ export default function CalendarTab() {
   }, [prediction]);
 
   const fertileSet = useMemo(() => {
-    if (!fertile || !prediction) return new Set<string>();
+    if (!fertilityOn || !fertile || !prediction) return new Set<string>();
     const out = new Set<string>();
     let start = fertile.start;
     let end = fertile.end;
@@ -70,35 +74,45 @@ export default function CalendarTab() {
       end = addDaysISO(end, prediction.cycleLength);
     }
     return out;
-  }, [fertile, prediction]);
+  }, [fertilityOn, fertile, prediction]);
 
   return (
-    <Screen scroll>
-      <View style={{ marginTop: t.spacing.md }}>
-        <Text variant="micro" color={t.palette.inkMuted}>
-          CALENDAR
-        </Text>
-        <Text variant="h1">Your journey</Text>
-        <Text variant="caption" color={t.palette.inkMuted}>
-          Six months at a glance — past, present, and projected.
-        </Text>
-      </View>
+    // Non-scroll Screen so the Legend can sit in a pinned footer below the
+    // scrollable month list, instead of being buried at the bottom of a long
+    // six-month scroll.
+    <Screen>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: t.spacing.lg }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ marginTop: t.spacing.md }}>
+          <Text variant="micro" color={t.palette.inkMuted}>
+            CALENDAR
+          </Text>
+          <Text variant="h1">Your journey</Text>
+          <Text variant="caption" color={t.palette.inkMuted}>
+            Six months at a glance — past, present, and projected.
+          </Text>
+        </View>
 
-      <View style={{ marginTop: t.spacing.lg, gap: t.spacing.xl }}>
-        {months.map((m) => (
-          <Month
-            key={toISO(m)}
-            cursor={m}
-            dayMap={dayMap}
-            predictedSet={predictedSet}
-            fertileSet={fertileSet}
-            onPickDay={(iso) => router.push(`/log/${iso}`)}
-          />
-        ))}
-      </View>
+        <View style={{ marginTop: t.spacing.lg, gap: t.spacing.xl }}>
+          {months.map((m) => (
+            <Month
+              key={toISO(m)}
+              cursor={m}
+              dayMap={dayMap}
+              predictedSet={predictedSet}
+              fertileSet={fertileSet}
+              onPickDay={(iso) => router.push(`/log/${iso}`)}
+            />
+          ))}
+        </View>
+      </ScrollView>
 
-      <View style={{ marginTop: t.spacing.xl }}>
-        <Legend />
+      {/* Pinned footer — stays put while the month list scrolls. */}
+      <View style={{ paddingTop: t.spacing.md }}>
+        <Legend showFertile={fertilityOn} />
       </View>
     </Screen>
   );
@@ -201,8 +215,12 @@ function DayCell({
     return null;
   })();
 
+  // Priority: a logged flow always wins; otherwise a predicted upcoming period
+  // gets a soft fill (plus the dashed ring below), then the fertile window.
   const bg = flowColor
     ? flowColor
+    : isPredicted
+    ? t.palette.predictedSoft
     : isFertile
     ? t.palette.ovulationSoft
     : 'transparent';
@@ -253,22 +271,27 @@ function DayCell({
   );
 }
 
-function Legend() {
+function Legend({ showFertile }: { showFertile: boolean }) {
   const t = useTheme();
-  const item = (color: string, label: string, dashed = false) => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+  const { Term } = useCopy();
+  const item = (
+    fill: string,
+    label: string,
+    opts: { border?: string; dashed?: boolean } = {},
+  ) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
       <View
         style={{
-          width: 10,
-          height: 10,
-          borderRadius: 5,
-          backgroundColor: dashed ? 'transparent' : color,
-          borderWidth: dashed ? 1.5 : 0,
-          borderColor: color,
-          borderStyle: dashed ? 'dashed' : 'solid',
+          width: 11,
+          height: 11,
+          borderRadius: 6,
+          backgroundColor: fill,
+          borderWidth: opts.border ? 1.5 : 0,
+          borderColor: opts.border,
+          borderStyle: opts.dashed ? 'dashed' : 'solid',
         }}
       />
-      <Text variant="caption" color={t.palette.inkMuted}>
+      <Text variant="micro" color={t.palette.inkMuted}>
         {label}
       </Text>
     </View>
@@ -277,16 +300,20 @@ function Legend() {
     <View
       style={{
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: t.spacing.lg,
+        alignItems: 'center',
+        justifyContent: 'space-between',
         backgroundColor: t.palette.paperDeep,
-        padding: t.spacing.md,
+        paddingVertical: t.spacing.sm,
+        paddingHorizontal: t.spacing.md,
         borderRadius: t.radii.md,
       }}
     >
-      {item(t.palette.flowMedium, 'Period')}
-      {item(t.palette.ovulationSoft, 'Fertile (est.)')}
-      {item(t.palette.predicted, 'Predicted', true)}
+      {item(t.palette.flowMedium, `${Term} (logged)`)}
+      {showFertile && item(t.palette.ovulationSoft, 'Fertile window (est.)')}
+      {item(t.palette.predictedSoft, `Predicted ${Term.toLowerCase()}`, {
+        border: t.palette.predicted,
+        dashed: true,
+      })}
     </View>
   );
 }

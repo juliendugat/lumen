@@ -9,6 +9,7 @@ import { Button } from '@/ui/components/Button';
 import { NumberStepper } from '@/ui/components/NumberStepper';
 import { useTheme } from '@/ui/ThemeProvider';
 import { useCycle } from '@/store/cycle';
+import { useCopy } from '@/copy/useCopy';
 import { listCycles } from '@/db/repo';
 import { cycleLengthsFromStarts } from '@/engine/predict';
 
@@ -27,6 +28,7 @@ export default function CycleDefaults() {
   const t = useTheme();
   const router = useRouter();
   const { settings, patchSettings } = useCycle();
+  const { term, Term } = useCopy();
   const [cycle, setCycle] = useState<number>(settings?.defaultCycleLength ?? 28);
   const [period, setPeriod] = useState<number>(settings?.defaultPeriodLength ?? 5);
   const [learnedCycle, setLearnedCycle] = useState<number | null>(null);
@@ -117,7 +119,7 @@ export default function CycleDefaults() {
               )}
             </View>
             <Text variant="caption" color={t.palette.inkMuted}>
-              From the first day of one period to the first day of the next.
+              From the first day of one {term} to the first day of the next.
             </Text>
             <View style={{ marginTop: t.spacing.sm }}>
               <NumberStepper
@@ -134,7 +136,7 @@ export default function CycleDefaults() {
         <Card>
           <VStack gap="sm">
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <Text variant="bodyStrong">Period length</Text>
+              <Text variant="bodyStrong">{Term} length</Text>
               {learnedPeriod != null && learnedPeriod !== period && (
                 <Text variant="caption" color={t.palette.inkMuted}>
                   Learned: {learnedPeriod} days
@@ -157,7 +159,7 @@ export default function CycleDefaults() {
         </Card>
 
         <Text variant="caption" color={t.palette.inkFaint} style={{ paddingHorizontal: t.spacing.sm }}>
-          Need to fix a logged period day? Open the calendar tab and tap the date.
+          Need to fix a logged {term} day? Open the calendar tab and tap the date.
         </Text>
 
         <Button

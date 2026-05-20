@@ -8,24 +8,19 @@ import { useCycle } from '@/store/cycle';
 import { todayISO } from '@/engine/dates';
 import { ALL_SYMPTOM_ITEMS } from '@/features/day-log/symptomCatalog';
 
-type LearnedSymptom = { value: string; label: string; icon: IconName; count: number };
+export type LearnedSymptom = { value: string; label: string; icon: IconName; count: number };
+
+/** Minimum number of distinct learned symptoms before we surface the card. */
+export const RECENTLY_TRACKED_MIN = 3;
 
 /**
- * "What are you feeling today?" — Flo dashboard pattern. Surfaces the user's
- * top 4 recently-tracked symptoms as one-tap toggle cards. The set is learned
- * from the last ~90 days of logs.
- *
- * Returns null when the user hasn't tracked enough symptoms yet (we don't
- * surface a stale or sparse list).
+ * Learns the user's top-4 most-tracked symptoms over the last ~90 days.
+ * Shared between {@link RecentlyTracked} (which renders them) and the home
+ * "More for today" drawer (which counts them for its badge) so the two never
+ * disagree about whether the card is visible.
  */
-export function RecentlyTracked({ todaySymptoms }: { todaySymptoms: string[] }) {
-  const t = useTheme();
-  const { patchDay } = useCycle();
+export function useLearnedSymptoms(): LearnedSymptom[] {
   const [learned, setLearned] = useState<LearnedSymptom[]>([]);
-  const [today, setToday] = useState<string[]>(todaySymptoms);
-
-  useEffect(() => setToday(todaySymptoms), [todaySymptoms]);
-
   useEffect(() => {
     (async () => {
       const days = await getTrendDays();
@@ -49,8 +44,31 @@ export function RecentlyTracked({ todaySymptoms }: { todaySymptoms: string[] }) 
       setLearned(sorted);
     })();
   }, []);
+  return learned;
+}
 
-  if (learned.length < 3) return null; // not enough signal
+/**
+ * "What are you feeling today?" — Flo dashboard pattern. Surfaces the user's
+ * top 4 recently-tracked symptoms as one-tap toggle cards.
+ *
+ * `learned` is supplied by the parent (via {@link useLearnedSymptoms}) so the
+ * drawer badge and this card share a single source of truth. Returns null when
+ * the user hasn't tracked enough symptoms yet.
+ */
+export function RecentlyTracked({
+  todaySymptoms,
+  learned,
+}: {
+  todaySymptoms: string[];
+  learned: LearnedSymptom[];
+}) {
+  const t = useTheme();
+  const { patchDay } = useCycle();
+  const [today, setToday] = useState<string[]>(todaySymptoms);
+
+  useEffect(() => setToday(todaySymptoms), [todaySymptoms]);
+
+  if (learned.length < RECENTLY_TRACKED_MIN) return null; // not enough signal
 
   const isOn = (v: string) => today.includes(v);
   const toggle = async (v: string) => {

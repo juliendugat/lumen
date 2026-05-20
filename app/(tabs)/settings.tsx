@@ -11,6 +11,7 @@ import { Button } from '@/ui/components/Button';
 import { useTheme } from '@/ui/ThemeProvider';
 import { Icon, type IconName } from '@/ui/icons/Icon';
 import { useCycle } from '@/store/cycle';
+import { useCopy } from '@/copy/useCopy';
 import { isLockAvailable } from '@/lib/biometric-lock';
 import { generateIcs } from '@/lib/ics';
 import { addDaysISO } from '@/engine/dates';
@@ -24,6 +25,7 @@ export default function Settings() {
   const t = useTheme();
   const router = useRouter();
   const { settings, prediction, fertile, patchSettings, exportData, wipe } = useCycle();
+  const { term, termPlural, Term } = useCopy();
   const [busy, setBusy] = useState<string | null>(null);
   const [notifStatus, setNotifStatus] = useState<PermissionStatus>('unsupported');
   // Health sync only exists when a custom dev client has the native module
@@ -246,6 +248,18 @@ export default function Settings() {
             <Hint>Precise terminology ("menstruation", "ovulation"). No hedging.</Hint>
           )}
 
+          <SegmentedRow
+            title="Appearance"
+            options={[
+              { value: 'system', label: 'System' },
+              { value: 'light', label: 'Light' },
+              { value: 'dark', label: 'Dark' },
+            ]}
+            value={settings.themeMode ?? 'system'}
+            onChange={(v) => patchSettings({ themeMode: v })}
+          />
+          <Hint>System follows your phone's light/dark setting.</Hint>
+
           {showNotifWarning && (
             <View
               style={{
@@ -268,7 +282,7 @@ export default function Settings() {
           )}
           <Row
             icon="flag"
-            title="Period expected"
+            title={`${Term} expected`}
             subtitle="Notify a couple of days before."
             right={
               <Switch
@@ -279,7 +293,7 @@ export default function Settings() {
           />
           <Row
             icon="flag"
-            title="Period late"
+            title={`${Term} late`}
             subtitle="Notify a couple of days past expected."
             right={
               <Switch
@@ -306,7 +320,7 @@ export default function Settings() {
           <RowAction
             icon="flower"
             title="Cycle defaults"
-            subtitle={`${settings.defaultCycleLength}-day cycle, ${settings.defaultPeriodLength}-day period.`}
+            subtitle={`${settings.defaultCycleLength}-day cycle, ${settings.defaultPeriodLength}-day ${term}.`}
             onPress={() => router.push('/cycle-defaults')}
           />
           <SegmentedRow
@@ -321,7 +335,7 @@ export default function Settings() {
             onChange={(v) => patchSettings({ fertilityMode: v })}
           />
           {settings.fertilityMode !== 'off' && (
-            <Hint>BBT and cervical mucus appear in the day log. Estimates are not contraception.</Hint>
+            <Hint>Adds a basal body temperature field to the day log and shows fertile-window estimates. Not contraception.</Hint>
           )}
           <Row
             icon="heart"
@@ -366,7 +380,7 @@ export default function Settings() {
           <RowAction
             icon="export"
             title="Calendar export (.ics)"
-            subtitle="Next 6 predicted periods + fertile windows."
+            subtitle={`Next 6 predicted ${termPlural} + fertile windows.`}
             onPress={exportIcs}
             busy={busy === 'ics'}
             disabled={!prediction}

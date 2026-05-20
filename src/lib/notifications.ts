@@ -72,6 +72,8 @@ export type ScheduleParams = {
   periodSoonDays?: number; // e.g. 2 → "starts in 2 days"
   lateDays?: number; // e.g. 2 → "2 days late"
   fertileEnabled?: boolean;
+  /** User-facing term for the bleed event: 'period' (default) or 'menstruation'. */
+  term?: string;
 };
 
 async function cancelAll(prefixes: readonly string[]) {
@@ -93,6 +95,8 @@ export async function rescheduleNotifications(params: ScheduleParams): Promise<v
   if (!granted) return;
 
   const fireHour = 9; // 09:00 local
+  const term = params.term || 'period';
+  const Term = term.charAt(0).toUpperCase() + term.slice(1);
 
   if (params.periodSoonDays && params.periodSoonDays > 0) {
     const fireDay = addDaysISO(params.predictedStart, -params.periodSoonDays);
@@ -101,8 +105,8 @@ export async function rescheduleNotifications(params: ScheduleParams): Promise<v
       await Notifications.scheduleNotificationAsync({
         identifier: `${NOTIF_IDS.periodSoon}.${fireDay}`,
         content: {
-          title: 'Period expected soon',
-          body: `Your period is likely to start around ${humanDate(params.predictedStart)}.`,
+          title: `${Term} expected soon`,
+          body: `Your ${term} is likely to start around ${humanDate(params.predictedStart)}.`,
         },
         trigger: fireAt(at),
       });
@@ -116,7 +120,7 @@ export async function rescheduleNotifications(params: ScheduleParams): Promise<v
       await Notifications.scheduleNotificationAsync({
         identifier: `${NOTIF_IDS.periodLate}.${fireDay}`,
         content: {
-          title: 'Period running late',
+          title: `${Term} running late`,
           body: `It's ${params.lateDays} days past the expected start. Tap to log.`,
         },
         trigger: fireAt(at),

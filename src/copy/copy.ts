@@ -12,20 +12,31 @@ export type Term = 'period' | 'cycle' | 'menstruation';
 
 type Bag = {
   homeKicker: string;
-  predictHeadline: (daysUntil: number, label: string) => string;
+  /** Inline "next period" timing under the ring, e.g. "In 5 days" / "Expected in 5 days". */
+  predictHeadline: (daysUntil: number) => string;
+  /** Ring sub-label when a period is expected soon. Clinical drops the hedging. */
+  expectedSub: (daysUntil: number) => string;
+  /** Ring sub-label around the fertile peak (ovulation). */
+  peakSub: (daysToPeak: number) => string;
   fertileLabel: string;
   fertileSub: string;
   emptyHomeBody: string;
+  /** Empty-state CTA on the home ring. */
+  logFirstCta: string;
   notesPrompt: string;
 };
 
 const adultCycling: Bag = {
   homeKicker: 'today',
   predictHeadline: (n) => (n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : `In ${n} days`),
+  expectedSub: (n) =>
+    n === 0 ? 'Period likely today' : n === 1 ? 'Period likely tomorrow' : `Period likely in ${n} days`,
+  peakSub: (n) => (n === 0 ? 'Peak day' : `Peak in ${n}d`),
   fertileLabel: 'Fertile window (estimate)',
   fertileSub: 'Estimate based on your cycle pattern. Not a contraceptive method.',
   emptyHomeBody:
     "Tap the ring to log today's flow, symptoms, mood, or notes. Your data stays on this device.",
+  logFirstCta: 'Log your first period to start',
   notesPrompt: 'Anything worth remembering?',
 };
 
@@ -33,11 +44,15 @@ const teenCycling: Bag = {
   homeKicker: 'today',
   predictHeadline: (n) =>
     n === 0 ? 'Today, maybe' : n === 1 ? 'Around tomorrow' : `In about ${n} days`,
+  expectedSub: (n) =>
+    n === 0 ? 'Might start today' : n === 1 ? 'Maybe tomorrow' : `Maybe in about ${n} days`,
+  peakSub: (n) => (n === 0 ? 'Most fertile day' : `Peak in about ${n}d`),
   fertileLabel: 'Most likely fertile days',
   fertileSub:
     "These are the days a body is most likely to be able to get pregnant. It's an estimate from your pattern — it isn't birth control.",
   emptyHomeBody:
     'Tap the circle to log how today feels — bleeding, pain, mood, or just a note. Nothing leaves this phone.',
+  logFirstCta: 'Tap to log your first period',
   notesPrompt: 'Anything you want to remember about today?',
 };
 
@@ -45,11 +60,19 @@ const clinicalCycling: Bag = {
   homeKicker: 'today',
   predictHeadline: (n) =>
     n === 0 ? 'Expected today' : n === 1 ? 'Expected tomorrow' : `Expected in ${n} days`,
+  expectedSub: (n) =>
+    n === 0
+      ? 'Menstruation expected today'
+      : n === 1
+      ? 'Menstruation expected tomorrow'
+      : `Menstruation expected in ${n} days`,
+  peakSub: (n) => (n === 0 ? 'Estimated ovulation' : `Ovulation in ${n}d`),
   fertileLabel: 'Estimated fertile window',
   fertileSub:
     'Computed from the recency-weighted cycle mean. Estimate, not a contraceptive method.',
   emptyHomeBody:
     "Log today's flow, symptoms, BBT, mucus, or notes. Data is stored locally only.",
+  logFirstCta: 'Log your first menstruation to start',
   notesPrompt: 'Notes for this day:',
 };
 

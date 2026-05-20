@@ -16,9 +16,10 @@ import { FlowTiles, type FlowValue } from '@/features/home/FlowTiles';
 import { SelfCareCard } from '@/features/home/SelfCareCard';
 import { PregnancyChanceCard } from '@/features/home/PregnancyChanceCard';
 import { TipCard } from '@/features/home/TipCard';
-import { RecentlyTracked } from '@/features/home/RecentlyTracked';
+import { RecentlyTracked, useLearnedSymptoms, RECENTLY_TRACKED_MIN } from '@/features/home/RecentlyTracked';
 import { deriveHomeState } from '@/features/home/headline';
 import { pregnancyChance } from '@/engine/health-signals';
+import { useCopy } from '@/copy/useCopy';
 
 /**
  * Home redesign (UX Review redesign 01):
@@ -56,6 +57,8 @@ export default function Home() {
     | 'cycling' | 'pregnant' | 'perimenopausal' | 'postpartum';
   const cycleLength = prediction?.cycleLength ?? settings?.defaultCycleLength ?? 28;
   const periodLength = prediction?.periodLength ?? settings?.defaultPeriodLength ?? 5;
+  const fertilityOn = !!settings?.fertilityMode && settings.fertilityMode !== 'off';
+  const { term, copy } = useCopy();
 
   const state = deriveHomeState({
     cycleDay: cycleDayNum,
@@ -86,7 +89,7 @@ export default function Home() {
   const centerKicker = !cycleDayNum
     ? undefined
     : state.kind === 'period'
-    ? 'PERIOD'
+    ? term.toUpperCase()
     : state.kind === 'fertile'
     ? state.daysToPeak === 0
       ? 'OVULATION'
@@ -99,15 +102,8 @@ export default function Home() {
     ? 'LUTEAL'
     : 'TODAY';
   const centerSub = (() => {
-    if (state.kind === 'fertile' && state.daysToPeak === 0) return 'Peak day';
-    if (state.kind === 'fertile' && state.daysToPeak > 0)
-      return `Peak in ${state.daysToPeak}d`;
-    if (state.kind === 'expected-soon')
-      return state.daysUntil === 0
-        ? 'Period likely today'
-        : state.daysUntil === 1
-        ? 'Period likely tomorrow'
-        : `Period in ${state.daysUntil}d`;
+    if (state.kind === 'fertile') return copy.peakSub(state.daysToPeak);
+    if (state.kind === 'expected-soon') return copy.expectedSub(state.daysUntil);
     return undefined;
   })();
 
@@ -118,9 +114,8 @@ export default function Home() {
     const daysUntil = diffDays(prediction.expectedStart, today);
     if (daysUntil < 0) return null; // covered by the "late" state in the ring
     const dateStr = humanDay(prediction.expectedStart);
-    if (daysUntil === 0) return `Today (${dateStr})`;
-    if (daysUntil === 1) return `Tomorrow (${dateStr})`;
-    return `In ${daysUntil} days · ${dateStr}`;
+    if (daysUntil <= 1) return `${copy.predictHeadline(daysUntil)} (${dateStr})`;
+    return `${copy.predictHeadline(daysUntil)} · ${dateStr}`;
   })();
 
   return (
@@ -172,6 +167,7 @@ export default function Home() {
               periodLength={periodLength}
               fertile={fertileRel}
               cyclesLogged={cyclesLogged}
+              showPeak={fertilityOn}
               centerKicker={centerKicker}
               centerLabel={centerLabel}
               centerSubLabel={centerSub}
@@ -182,7 +178,7 @@ export default function Home() {
           {nextPeriodText && cyclesLogged > 0 && (
             <View style={{ alignItems: 'center', gap: 2 }}>
               <Text variant="micro" color={t.palette.inkMuted}>
-                NEXT PERIOD
+                NEXT {term.toUpperCase()}
               </Text>
               <Text variant="bodyStrong">{nextPeriodText}</Text>
               {prediction && (
@@ -193,10 +189,14 @@ export default function Home() {
             </View>
           )}
 
+          {/* Subtle key for the ring's phase colours. Only meaningful once the
+              ring is actually coloured (cyclesLogged > 0). */}
+          {cyclesLogged > 0 && <RingKey />}
+
           {state.kind === 'no-data' && (
             <View style={{ alignItems: 'center', gap: 4, marginTop: t.spacing.sm }}>
               <Text variant="bodyStrong" align="center">
-                Log your first period to start
+                {copy.logFirstCta}
               </Text>
               <Text variant="caption" color={t.palette.inkMuted} align="center">
                 Predictions tighten after a couple of cycles.
@@ -264,6 +264,48 @@ export default function Home() {
   );
 }
 
+// ─── Ring colour key ───────────────────────────────────────────────────────
+
+/**
+ * A quiet legend explaining what the ring's four phase colours mean. Tokens
+ * mirror the segment colours in CycleRing exactly (period/follicular/fertile/
+ * luteal), so the swatches always match the ring.
+ */
+function RingKey() {
+  const t = useTheme();
+  const { Term } = useCopy();
+  const items: Array<{ color: string; label: string }> = [
+    { color: t.palette.flowMedium, label: Term },
+    { color: t.palette.follicular, label: 'Follicular' },
+    { color: t.palette.fertile, label: 'Fertile' },
+    { color: t.palette.luteal, label: 'Luteal' },
+  ];
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        rowGap: 4,
+        columnGap: t.spacing.md,
+      }}
+      accessibilityRole="text"
+      accessibilityLabel="Ring colours: period, follicular, fertile, luteal"
+    >
+      {items.map((it) => (
+        <View key={it.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <View
+            style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: it.color }}
+          />
+          <Text variant="micro" color={t.palette.inkMuted}>
+            {it.label}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ─── "More for today" drawer ───────────────────────────────────────────────
 
 function MoreForToday({
@@ -278,10 +320,15 @@ function MoreForToday({
   const t = useTheme();
   const [open, setOpen] = useState(false);
 
-  // Count how many sub-cards we have so the badge is accurate.
-  // (Pregnancy-chance hides on 'unknown'; recently-tracked hides until 3+
-  //  symptoms are tracked over the last 90 days.)
-  const cardCount = 4; // Tip + Self-care + chance + recently. Close enough.
+  // Compute the badge from the cards that will actually render, so it never
+  // disagrees with what the user sees once expanded:
+  //   • Tip + Self-care   — always shown for non-no-data states
+  //   • Pregnancy-chance  — hidden when chance is 'unknown'
+  //   • Recently-tracked  — hidden until ≥3 distinct symptoms over ~90 days
+  const learned = useLearnedSymptoms();
+  const recentlyVisible = learned.length >= RECENTLY_TRACKED_MIN;
+  const chanceVisible = chance !== 'unknown';
+  const cardCount = 2 + (chanceVisible ? 1 : 0) + (recentlyVisible ? 1 : 0);
 
   return (
     <View
@@ -328,7 +375,7 @@ function MoreForToday({
 
       {open && (
         <VStack gap="md" style={{ marginTop: t.spacing.sm }}>
-          <RecentlyTracked todaySymptoms={todaySymptoms} />
+          <RecentlyTracked todaySymptoms={todaySymptoms} learned={learned} />
           <PregnancyChanceCard chance={chance} />
           <SelfCareCard state={state} />
           <TipCard />
@@ -348,6 +395,7 @@ function PregnancyHome({
   dayInWeek: number | null;
 }) {
   const t = useTheme();
+  const { Term } = useCopy();
   return (
     <Screen scroll>
       <VStack gap="xl">
@@ -382,7 +430,7 @@ function PregnancyHome({
         <Card>
           <Text variant="bodyStrong">Cycle predictions paused</Text>
           <Text variant="caption" color={t.palette.inkMuted}>
-            Period and fertile-window predictions are off. Turn pregnancy mode off in
+            {Term} and fertile-window predictions are off. Turn pregnancy mode off in
             Settings → You when you want them back.
           </Text>
         </Card>

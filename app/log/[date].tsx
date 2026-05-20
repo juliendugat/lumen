@@ -18,6 +18,7 @@ import {
   type SymptomItem,
 } from '@/features/day-log/symptomCatalog';
 import { VoiceMemos } from '@/features/day-log/VoiceMemos';
+import { useCopy } from '@/copy/useCopy';
 
 /**
  * Day-log redesign (UX Review issue 02 + redesign 02):
@@ -26,8 +27,8 @@ import { VoiceMemos } from '@/features/day-log/VoiceMemos';
  *    toggle, tile tap, switch flip writes through immediately. Notes are
  *    debounced at 600 ms so typing doesn't write 40 rows.
  * 2. **Single scroll, no tabs.** Flow / Symptoms / Mood / Note all share
- *    one scroll. Optional fertility fields collapse under a "More" toggle
- *    when fertility tracking is off (rather than tab-hidden).
+ *    one scroll. Optional fertility (BBT) and sex-log sections render inline
+ *    when their Settings toggles are on, and are absent otherwise.
  * 3. **No sticky Save bar.** Replaced with a small "● Saved" status under
  *    the date header.
  */
@@ -51,6 +52,7 @@ export default function LogDay() {
   const params = useLocalSearchParams<{ date: string }>();
   const date = params.date ?? '';
   const { setFlow, patchDay, settings } = useCycle();
+  const { copy } = useCopy();
 
   const [draft, setDraft] = useState<DraftState>({
     flow: null,
@@ -68,10 +70,9 @@ export default function LogDay() {
     Digestion: true,
     Energy: true,
     Skin: true,
-    Hair: false,
-    Sleep: false,
+    Hair: true,
+    Sleep: true,
   });
-  const [showMore, setShowMore] = useState<boolean>(false);
   const [loaded, setLoaded] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
@@ -399,7 +400,7 @@ export default function LogDay() {
             value={draft.notes}
             onChangeText={onNotesChange}
             multiline
-            placeholder="Anything to add?"
+            placeholder={copy.notesPrompt}
             placeholderTextColor={t.palette.inkFaint}
             accessibilityLabel="Notes"
             style={{
@@ -420,65 +421,50 @@ export default function LogDay() {
           <VoiceMemos date={date} />
         </Section>
 
-        {/* More — collapsed by default. BBT, sex log if enabled, etc. */}
-        {(showFertilityFields || showSexLog) && (
-          <View style={{ gap: t.spacing.md }}>
-            <Pressable
-              onPress={() => setShowMore((s) => !s)}
-              accessibilityRole="button"
-              accessibilityLabel="Toggle more options"
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
-            >
-              <Text variant="micro" color={t.palette.inkMuted}>
-                MORE
-              </Text>
-              <Text variant="caption" color={t.palette.inkMuted}>
-                {showMore ? '▾' : '▸'}
-              </Text>
-            </Pressable>
+        {/* Basal body temperature — shown directly whenever fertility tracking
+            is on, so toggling it in Settings produces a visible field here
+            (it used to hide under a collapsed "More" drawer). */}
+        {showFertilityFields && (
+          <Section icon="thermometer" title="Basal body temperature (°C)">
+            <TextInput
+              value={draft.bbtText}
+              onChangeText={writeBbt}
+              keyboardType="decimal-pad"
+              placeholder="e.g. 36.45"
+              placeholderTextColor={t.palette.inkFaint}
+              maxLength={5}
+              accessibilityLabel="Basal body temperature"
+              style={{
+                backgroundColor: t.palette.paperDeep,
+                borderRadius: t.radii.lg,
+                paddingHorizontal: t.spacing.lg,
+                paddingVertical: t.spacing.md,
+                color: t.palette.ink,
+                fontSize: 16,
+              }}
+            />
+            <Text variant="caption" color={t.palette.inkFaint}>
+              Take it first thing in the morning, before getting out of bed.
+            </Text>
+          </Section>
+        )}
 
-            {showMore && showFertilityFields && (
-              <Section icon="thermometer" title="Basal body temperature (°C)">
-                <TextInput
-                  value={draft.bbtText}
-                  onChangeText={writeBbt}
-                  keyboardType="decimal-pad"
-                  placeholder="e.g. 36.45"
-                  placeholderTextColor={t.palette.inkFaint}
-                  maxLength={5}
-                  accessibilityLabel="Basal body temperature"
-                  style={{
-                    backgroundColor: t.palette.paperDeep,
-                    borderRadius: t.radii.lg,
-                    paddingHorizontal: t.spacing.lg,
-                    paddingVertical: t.spacing.md,
-                    color: t.palette.ink,
-                    fontSize: 16,
-                  }}
-                />
-                <Text variant="caption" color={t.palette.inkFaint}>
-                  Take it first thing in the morning, before getting out of bed.
-                </Text>
-              </Section>
+        {/* Sex & protection — shown directly when enabled in Settings. */}
+        {showSexLog && (
+          <Section icon="heart" title="Sex">
+            <ToggleRow
+              label="Sexual activity today"
+              value={draft.sexLogged}
+              onChange={(v) => writeSex({ sexLogged: v })}
+            />
+            {draft.sexLogged && (
+              <ToggleRow
+                label="Protection used"
+                value={draft.protectionUsed}
+                onChange={(v) => writeSex({ protectionUsed: v })}
+              />
             )}
-
-            {showMore && showSexLog && (
-              <Section icon="heart" title="Sex">
-                <ToggleRow
-                  label="Sexual activity today"
-                  value={draft.sexLogged}
-                  onChange={(v) => writeSex({ sexLogged: v })}
-                />
-                {draft.sexLogged && (
-                  <ToggleRow
-                    label="Protection used"
-                    value={draft.protectionUsed}
-                    onChange={(v) => writeSex({ protectionUsed: v })}
-                  />
-                )}
-              </Section>
-            )}
-          </View>
+          </Section>
         )}
       </ScrollView>
     </Screen>

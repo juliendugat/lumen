@@ -20,6 +20,7 @@ import {
 } from '@/db/repo';
 import { predictNext, cycleDay, type Prediction } from '@/engine/predict';
 import { estimateFertileWindow } from '@/engine/fertility';
+import { termForVoice } from '@/copy/copy';
 import { effectiveSigma } from '@/engine/learn';
 import { todayISO, type ISODate, addDaysISO, diffDays } from '@/engine/dates';
 import { rescheduleNotifications } from '@/lib/notifications';
@@ -154,6 +155,7 @@ export const useCycle = create<CycleState>((set, get) => ({
         periodSoonDays: settings.notifPeriodSoonDays ?? undefined,
         lateDays: settings.notifLateDays ?? undefined,
         fertileEnabled: settings.notifFertileWindow,
+        term: termForVoice((settings.voice ?? 'adult') as Voice),
       });
     }
   },
